@@ -122,9 +122,13 @@ export default function Settings() {
           <Row label={`${profile?.morning_sync_time ?? '07:00'}`} hint="Tap to change" onPress={() => {}} />
         </Section>
 
-        {/* Avoidance goals (placeholder) */}
+        {/* Avoidance goals */}
         <Section label="Avoidance habits">
-          <Row label="Manage avoidance habits" hint="Sugar, Instagram, etc." onPress={() => {}} />
+          <Row
+            label="Manage avoidance habits"
+            hint="Sugar, Instagram, etc."
+            onPress={() => router.push('/(app)/avoidance' as any)}
+          />
         </Section>
 
         {/* Account */}

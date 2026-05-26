@@ -4,17 +4,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { VoiceBall, VoiceState } from '../../src/components/VoiceBall';
 import { fetchTodayTimeline, TimelineSlot } from '../../src/services/goals';
+import { computeVelocity } from '../../src/services/velocity';
 
 export default function Home() {
   const router = useRouter();
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [timeline, setTimeline] = useState<TimelineSlot[]>([]);
+  const [velocity, setVelocity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadTimeline = useCallback(async () => {
     try {
-      const slots = await fetchTodayTimeline();
+      const [slots, vel] = await Promise.all([
+        fetchTodayTimeline(),
+        computeVelocity(),
+      ]);
       setTimeline(slots);
+      setVelocity(vel.percent);
     } catch (e) {
       // Fall back to empty — not a crash
     } finally {
@@ -60,7 +66,7 @@ export default function Home() {
         </Text>
         <View className="items-end">
           <Text style={{ color: '#38BDF8', fontSize: 14, fontWeight: '500', fontFamily: 'JetBrainsMono_500Medium' }}>
-            92%
+            {velocity == null ? '—' : `${velocity}%`}
           </Text>
           <Text style={{ color: 'rgba(150,160,185,0.20)', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'JetBrainsMono_400Regular', marginTop: 2 }}>
             7-day velocity

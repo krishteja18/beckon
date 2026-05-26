@@ -43,6 +43,7 @@ export default function AppLayout() {
         name="settings"
         options={{ title: 'Settings', tabBarIcon: ({ color }) => <Icon name="gear" color={color} /> }}
       />
+      <Tabs.Screen name="avoidance" options={{ href: null }} />
     </Tabs>
   );
 }
