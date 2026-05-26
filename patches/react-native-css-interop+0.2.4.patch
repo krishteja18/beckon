@@ -1,0 +1,52 @@
+diff --git a/node_modules/react-native-css-interop/.cache/android.js b/node_modules/react-native-css-interop/.cache/android.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/ios.js b/node_modules/react-native-css-interop/.cache/ios.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/macos.js b/node_modules/react-native-css-interop/.cache/macos.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/native.js b/node_modules/react-native-css-interop/.cache/native.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/.cache/windows.js b/node_modules/react-native-css-interop/.cache/windows.js
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/react-native-css-interop/babel.js b/node_modules/react-native-css-interop/babel.js
+index d84e52b..706b6d3 100644
+--- a/node_modules/react-native-css-interop/babel.js
++++ b/node_modules/react-native-css-interop/babel.js
+@@ -1,16 +1,19 @@
+ module.exports = function () {
+-  return {
+-    plugins: [
+-      require("./dist/babel-plugin").default,
+-      [
+-        "@babel/plugin-transform-react-jsx",
+-        {
+-          runtime: "automatic",
+-          importSource: "react-native-css-interop",
+-        },
+-      ],
+-      // Use this plugin in reanimated 4 and later
+-      "react-native-worklets/plugin",
++  const plugins = [
++    require("./dist/babel-plugin").default,
++    [
++      "@babel/plugin-transform-react-jsx",
++      {
++        runtime: "automatic",
++        importSource: "react-native-css-interop",
++      },
+     ],
+-  };
++  ];
++
++  // PATCH (Showup): the `require.resolve` check can mis-fire on EAS Build
++  // workers and cause babel to try loading `react-native-worklets/plugin` which
++  // then crashes the bundle phase. Reanimated 3.x has its own worklets — we
++  // don't need this push. Skip entirely.
++
++  return { plugins };
+ };
