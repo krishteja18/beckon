@@ -1,0 +1,8 @@
+{
+  "name": "showup-alarm",
+  "version": "0.1.0",
+  "description": "Auto-launch voice calls at scheduled goal times. Wraps Android AlarmManager + ForegroundService(mediaPlayback) + lifecycle receivers.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "private": true
+}

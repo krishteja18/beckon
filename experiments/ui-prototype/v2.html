@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Showup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+:root{
+  --bg:#03040A;
+  --amber:hsl(32,90%,58%);
+  --amber-dim:hsla(32,90%,58%,0.12);
+  --amber-glow:hsla(32,90%,58%,0.35);
+  --steel:hsla(220,30%,70%,0.55);
+  --done:hsla(150,35%,55%,0.5);
+  --text-1:hsla(220,20%,92%,0.92);
+  --text-2:hsla(220,15%,70%,0.45);
+  --text-3:hsla(220,15%,60%,0.22);
+  --line:hsla(220,20%,80%,0.05);
+}
+html,body{height:100%;background:var(--bg);font-family:'Inter',sans-serif;overflow:hidden;color:var(--text-1)}
+
+/* ── ambient bg gradient ── */
+.bg-glow{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% -5%, hsla(32,80%,50%,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 105%, hsla(220,60%,40%,0.06) 0%, transparent 70%);
+}
+
+/* ── layout ── */
+.shell{
+  position:relative;z-index:1;
+  max-width:390px;margin:0 auto;
+  height:100dvh;
+  display:flex;flex-direction:column;
+  padding:0;overflow:hidden;
+}
+
+/* ── top bar ── */
+.topbar{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:52px 28px 20px;
+  flex-shrink:0;
+}
+.topbar-date{font-size:12px;font-weight:400;letter-spacing:.01em;color:var(--text-2)}
+.topbar-vel{text-align:right}
+.vel-num{font-size:13px;font-weight:500;letter-spacing:-.02em;color:var(--amber);font-variant-numeric:tabular-nums}
+.vel-label{font-size:9px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-top:2px}
+
+/* ── next call hero ── */
+.hero{
+  flex:1;display:flex;flex-direction:column;justify-content:center;
+  padding:0 28px;
+  position:relative;
+}
+.hero-label{
+  font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-3);margin-bottom:16px;
+}
+.hero-time{
+  font-size:72px;font-weight:100;letter-spacing:-.04em;line-height:1;
+  color:var(--text-1);font-variant-numeric:tabular-nums;
+}
+.hero-time em{font-style:normal;font-size:18px;font-weight:300;letter-spacing:.02em;color:var(--text-2);margin-left:6px;vertical-align:middle}
+.hero-goal{
+  font-size:22px;font-weight:300;letter-spacing:-.02em;
+  color:var(--text-1);margin-top:10px;opacity:.8;
+}
+.hero-sub{
+  font-size:12px;font-weight:400;color:var(--text-2);margin-top:6px;letter-spacing:.01em;
+}
+.hero-progress{
+  margin-top:28px;display:flex;align-items:center;gap:12px;
+}
+.hero-progress-track{
+  flex:1;height:1px;background:var(--line);border-radius:99px;overflow:hidden;
+}
+.hero-progress-fill{
+  height:100%;width:65%;
+  background:linear-gradient(90deg,transparent,var(--amber));
+  border-radius:99px;
+}
+.hero-progress-label{font-size:10px;font-weight:400;color:var(--text-3);letter-spacing:.04em;white-space:nowrap}
+
+/* ── divider ── */
+.divider{height:1px;background:var(--line);margin:0 28px;flex-shrink:0}
+
+/* ── timeline strip ── */
+.strip-wrap{
+  flex-shrink:0;
+  padding:16px 0 12px;
+  overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.strip-wrap::-webkit-scrollbar{display:none}
+.strip{
+  display:flex;gap:8px;padding:0 28px;
+  width:max-content;
+}
+.strip-item{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:10px 14px;border-radius:14px;
+  border:1px solid var(--line);
+  background:transparent;
+  cursor:pointer;transition:border-color .2s,background .2s;
+  min-width:80px;
+}
+.strip-item.done{opacity:.35}
+.strip-item.active{
+  border-color:hsla(32,90%,58%,0.25);
+  background:var(--amber-dim);
+}
+.strip-item.upcoming{}
+.strip-time{font-size:10px;font-weight:500;letter-spacing:.01em;color:var(--text-2);font-variant-numeric:tabular-nums}
+.strip-dot{width:5px;height:5px;border-radius:50%}
+.strip-item.done    .strip-dot{background:var(--done)}
+.strip-item.active  .strip-dot{background:var(--amber);box-shadow:0 0 6px var(--amber-glow)}
+.strip-item.upcoming .strip-dot{background:var(--text-3)}
+.strip-name{font-size:10px;font-weight:400;color:var(--text-2);letter-spacing:-.01em;text-align:center;line-height:1.3}
+
+/* ── bottom panel ── */
+.bottom{
+  flex-shrink:0;
+  padding:16px 28px 44px;
+  display:flex;flex-direction:column;align-items:center;gap:20px;
+  background:linear-gradient(to top,#03040A 70%,transparent);
+}
+.escape-row{display:flex;gap:10px;width:100%}
+.escape-btn{
+  flex:1;padding:11px 0;border-radius:14px;
+  border:1px solid var(--line);background:transparent;
+  font-size:11.5px;font-weight:400;letter-spacing:.01em;
+  color:var(--text-2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  transition:color .2s,border-color .2s,background .2s;
+  font-family:'Inter',sans-serif;
+}
+.escape-btn:hover,.escape-btn:active{
+  color:var(--text-1);border-color:hsla(220,20%,80%,0.12);
+  background:hsla(220,20%,80%,0.03);
+}
+.escape-icon{width:14px;height:14px;opacity:.5}
+
+/* ── voice ball ── */
+.ball-wrap{position:relative;width:80px;height:80px;cursor:pointer}
+.ball-label{
+  font-size:9px;font-weight:400;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-3);text-align:center;
+  transition:color .4s;margin-bottom:2px;
+}
+.ball-label.active{color:hsla(32,90%,58%,.7)}
+
+/* fluid SVG ball */
+.ball-svg{width:80px;height:80px;overflow:visible}
+
+/* ── keyframes ── */
+@keyframes turbulence-idle{
+  0%,100%{stdDeviation:3;baseFrequency:0.012}
+  50%{stdDeviation:5;baseFrequency:0.018}
+}
+@keyframes ball-breathe{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.035)}
+}
+@keyframes ball-speak{
+  0%,100%{transform:scale(1)}
+  15%{transform:scale(1.1)}
+  40%{transform:scale(.94)}
+  65%{transform:scale(1.07)}
+}
+@keyframes ball-process-ring{
+  from{stroke-dashoffset:200}
+  to{stroke-dashoffset:0}
+}
+@keyframes orbit{
+  from{transform:rotate(0deg) translateX(44px)}
+  to{transform:rotate(360deg) translateX(44px)}
+}
+@keyframes ripple{
+  0%{r:36;opacity:.5}
+  100%{r:58;opacity:0}
+}
+@keyframes fade-in{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.hero{animation:fade-in .6s cubic-bezier(.16,1,.3,1) forwards}
+.strip{animation:fade-in .5s .1s cubic-bezier(.16,1,.3,1) both}
+
+/* state labels */
+.state-idle{color:var(--text-3)}
+.state-listening{color:hsla(150,60%,65%,.8)}
+.state-processing{color:hsla(220,70%,75%,.8)}
+.state-speaking{color:var(--amber);opacity:.9}
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="shell">
+
+  <!-- top bar -->
+  <div class="topbar">
+    <div class="topbar-date" id="date-label"></div>
+    <div class="topbar-vel">
+      <div class="vel-num">92%</div>
+      <div class="vel-label">7-day velocity</div>
+    </div>
+  </div>
+
+  <!-- hero: next call -->
+  <div class="hero">
+    <div class="hero-label">Next call</div>
+    <div class="hero-time">06:00<em>PM</em></div>
+    <div class="hero-goal">Gym Session</div>
+    <div class="hero-sub">Strength training · Atomic Habits · 34 min away</div>
+    <div class="hero-progress">
+      <div class="hero-progress-track">
+        <div class="hero-progress-fill" id="day-fill"></div>
+      </div>
+      <div class="hero-progress-label" id="day-pct"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- timeline strip -->
+  <div class="strip-wrap">
+    <div class="strip" id="strip"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- bottom -->
+  <div class="bottom">
+    <div class="escape-row">
+      <button class="escape-btn" onclick="triggerRoughDay()">
+        <svg class="escape-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.5"/>
+          <circle cx="7" cy="10" r=".5" fill="currentColor"/>
+        </svg>
+        Rough Day
+      </button>
+      <button class="escape-btn" onclick="triggerWall()">
+        <svg class="escape-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M2 7h10M7 2l5 5-5 5"/>
+        </svg>
+        Hit a Wall
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div class="ball-label state-idle" id="ball-label">tap to speak</div>
+      <div class="ball-wrap" id="ball-wrap" onclick="cycleState()">
+
+        <!-- SVG fluid voice ball -->
+        <svg class="ball-svg" viewBox="-60 -60 120 120">
+          <defs>
+            <!-- fluid distortion filter -->
+            <filter id="fluid" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+              <feTurbulence id="turb" type="turbulence"
+                baseFrequency="0.012" numOctaves="4" seed="5" result="noise"/>
+              <feDisplacementMap id="disp" in="SourceGraphic" in2="noise"
+                scale="0" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+            <!-- glow filter -->
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+            </filter>
+            <!-- radial gradient for sphere shading -->
+            <radialGradient id="sphere-grad" cx="38%" cy="32%" r="65%">
+              <stop offset="0%"   stop-color="hsl(32,90%,78%)" stop-opacity=".95"/>
+              <stop offset="40%"  stop-color="hsl(32,85%,55%)" stop-opacity=".98"/>
+              <stop offset="80%"  stop-color="hsl(25,70%,28%)" stop-opacity="1"/>
+              <stop offset="100%" stop-color="hsl(20,60%,12%)" stop-opacity="1"/>
+            </radialGradient>
+            <radialGradient id="sphere-idle" cx="38%" cy="32%" r="65%">
+              <stop offset="0%"   stop-color="hsl(220,40%,80%)" stop-opacity=".6"/>
+              <stop offset="40%"  stop-color="hsl(220,30%,40%)" stop-opacity=".8"/>
+              <stop offset="100%" stop-color="hsl(220,20%,8%)"  stop-opacity="1"/>
+            </radialGradient>
+            <radialGradient id="sphere-listen" cx="38%" cy="32%" r="65%">
+              <stop offset="0%"   stop-color="hsl(150,70%,80%)" stop-opacity=".9"/>
+              <stop offset="45%"  stop-color="hsl(160,55%,45%)" stop-opacity=".95"/>
+              <stop offset="100%" stop-color="hsl(165,40%,10%)" stop-opacity="1"/>
+            </radialGradient>
+            <radialGradient id="sphere-process" cx="38%" cy="32%" r="65%">
+              <stop offset="0%"   stop-color="hsl(220,90%,88%)" stop-opacity=".95"/>
+              <stop offset="45%"  stop-color="hsl(230,70%,60%)" stop-opacity=".98"/>
+              <stop offset="100%" stop-color="hsl(235,50%,12%)" stop-opacity="1"/>
+            </radialGradient>
+            <!-- specular highlight -->
+            <radialGradient id="spec" cx="35%" cy="28%" r="30%">
+              <stop offset="0%"  stop-color="white" stop-opacity=".35"/>
+              <stop offset="100%" stop-color="white" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+
+          <!-- speaking ripple rings (shown via JS) -->
+          <circle id="ripple1" cx="0" cy="0" r="36" fill="none"
+            stroke="hsl(32,90%,58%)" stroke-width=".6" opacity="0"/>
+          <circle id="ripple2" cx="0" cy="0" r="36" fill="none"
+            stroke="hsl(32,90%,58%)" stroke-width=".4" opacity="0"/>
+
+          <!-- processing arc ring -->
+          <circle id="proc-ring" cx="0" cy="0" r="42" fill="none"
+            stroke="hsla(220,70%,70%,0)" stroke-width=".8"
+            stroke-dasharray="30 200" stroke-linecap="round"
+            transform="rotate(-90)"/>
+
+          <!-- the sphere -->
+          <g id="ball-group">
+            <circle id="ball-core" cx="0" cy="0" r="34"
+              fill="url(#sphere-idle)"
+              filter="url(#fluid)"/>
+            <!-- specular highlight -->
+            <circle id="ball-spec" cx="0" cy="0" r="34"
+              fill="url(#spec)" opacity=".7"/>
+          </g>
+
+          <!-- orbital dot (processing) -->
+          <g id="orbit-dot" opacity="0" style="transform-origin:0 0">
+            <circle cx="0" cy="0" r="3" fill="hsl(220,80%,75%)"
+              filter="url(#glow)"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ── data ── */
+const TIMELINE = [
+  {time:'6:45 AM', name:'AM Ignition',   status:'done'},
+  {time:'9:00 AM', name:'Deep Work',     status:'done'},
+  {time:'12:30 PM',name:'Lunch Reset',   status:'done'},
+  {time:'6:00 PM', name:'Gym Session',   status:'active'},
+  {time:'8:30 PM', name:'Evening Walk',  status:'upcoming'},
+  {time:'10:00 PM',name:'PM Debrief',    status:'upcoming'},
+];
+
+const STATES = ['idle','listening','processing','speaking'];
+let stateIdx = 0;
+
+/* ── date / day progress ── */
+(function(){
+  const d = new Date();
+  document.getElementById('date-label').textContent =
+    d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const pct = Math.round(((d.getHours()*60+d.getMinutes())/(24*60))*100);
+  document.getElementById('day-fill').style.width = pct+'%';
+  document.getElementById('day-pct').textContent = pct+'% of day';
+})();
+
+/* ── timeline strip ── */
+(function(){
+  const strip = document.getElementById('strip');
+  TIMELINE.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'strip-item '+item.status;
+    el.innerHTML = `
+      <div class="strip-time">${item.time}</div>
+      <div class="strip-dot"></div>
+      <div class="strip-name">${item.name}</div>
+    `;
+    strip.appendChild(el);
+  });
+})();
+
+/* ── voice ball state machine ── */
+const ballCore  = document.getElementById('ball-core');
+const ballSpec  = document.getElementById('ball-spec');
+const ballGroup = document.getElementById('ball-group');
+const turb      = document.getElementById('turb');
+const disp      = document.getElementById('disp');
+const label     = document.getElementById('ball-label');
+const ripple1   = document.getElementById('ripple1');
+const ripple2   = document.getElementById('ripple2');
+const procRing  = document.getElementById('proc-ring');
+const orbitDot  = document.getElementById('orbit-dot');
+
+let breatheAnim = null;
+let turbAnim    = null;
+let procAnim    = null;
+let rippleAnim1 = null;
+let rippleAnim2 = null;
+let orbitAngle  = 0;
+let orbitRaf    = null;
+
+function clearAnims(){
+  if(breatheAnim) breatheAnim.cancel?.() || (breatheAnim = null);
+  if(orbitRaf){ cancelAnimationFrame(orbitRaf); orbitRaf = null; }
+  if(rippleAnim1) rippleAnim1.cancel?.();
+  if(rippleAnim2) rippleAnim2.cancel?.();
+  orbitDot.style.opacity = '0';
+  procRing.style.stroke = 'hsla(220,70%,70%,0)';
+  ripple1.style.opacity = '0';
+  ripple2.style.opacity = '0';
+}
+
+function applyState(state){
+  clearAnims();
+  label.className = 'ball-label state-'+state;
+
+  const labels = {
+    idle:'tap to speak',
+    listening:'listening...',
+    processing:'thinking...',
+    speaking:'speaking'
+  };
+  label.textContent = labels[state];
+
+  if(state === 'idle'){
+    ballCore.setAttribute('fill','url(#sphere-idle)');
+    disp.setAttribute('scale','0');
+    turb.setAttribute('baseFrequency','0.008');
+    ballGroup.style.animation = 'ball-breathe 4s ease-in-out infinite';
+    ballCore.style.filter = 'drop-shadow(0 0 6px hsla(220,40%,60%,0.3))';
+  }
+
+  else if(state === 'listening'){
+    ballCore.setAttribute('fill','url(#sphere-listen)');
+    disp.setAttribute('scale','14');
+    turb.setAttribute('baseFrequency','0.02');
+    ballGroup.style.animation = 'none';
+    ballCore.style.filter = 'drop-shadow(0 0 14px hsla(150,60%,55%,0.6))';
+    // animate turbulence over time
+    let freq = 0.02;
+    let dir = 1;
+    turbAnim = setInterval(()=>{
+      freq += dir * 0.0006;
+      if(freq > 0.028 || freq < 0.013) dir *= -1;
+      turb.setAttribute('baseFrequency', freq.toFixed(4));
+      const s = 12 + Math.sin(Date.now()/400)*4;
+      disp.setAttribute('scale', s.toFixed(1));
+    },50);
+  }
+
+  else if(state === 'processing'){
+    ballCore.setAttribute('fill','url(#sphere-process)');
+    disp.setAttribute('scale','6');
+    turb.setAttribute('baseFrequency','0.015');
+    ballGroup.style.animation = 'none';
+    ballCore.style.filter = 'drop-shadow(0 0 10px hsla(230,70%,65%,0.5))';
+    procRing.style.stroke = 'hsla(220,70%,70%,0.4)';
+    // orbital dot
+    orbitDot.style.opacity = '1';
+    (function orbitLoop(){
+      orbitAngle = (orbitAngle + 2.4) % 360;
+      const r = 44;
+      const rad = orbitAngle * Math.PI / 180;
+      const x = Math.cos(rad)*r;
+      const y = Math.sin(rad)*r;
+      orbitDot.setAttribute('transform',`translate(${x.toFixed(2)},${y.toFixed(2)})`);
+      orbitRaf = requestAnimationFrame(orbitLoop);
+    })();
+    // spin the ring
+    let dashOffset = 0;
+    turbAnim = setInterval(()=>{
+      dashOffset = (dashOffset + 2) % 230;
+      procRing.setAttribute('stroke-dashoffset', dashOffset);
+    },16);
+  }
+
+  else if(state === 'speaking'){
+    ballCore.setAttribute('fill','url(#sphere-grad)');
+    disp.setAttribute('scale','8');
+    turb.setAttribute('baseFrequency','0.014');
+    ballGroup.style.animation = 'ball-speak .7s ease-in-out infinite';
+    ballCore.style.filter = 'drop-shadow(0 0 18px hsla(32,90%,58%,0.7))';
+    // ripple rings
+    let r1=36, r2=36, op1=.5, op2=0;
+    let offset2 = false;
+    turbAnim = setInterval(()=>{
+      r1 += 0.7; op1 -= 0.012;
+      if(r1 > 58){ r1=36; op1=.5; }
+      r2 += 0.7; op2 -= 0.012;
+      if(!offset2){ op2=0; r2=46; offset2=true; }
+      if(r2 > 58){ r2=36; op2=.5; }
+      ripple1.setAttribute('r', r1.toFixed(1));
+      ripple1.style.opacity = Math.max(0,op1);
+      ripple2.setAttribute('r', r2.toFixed(1));
+      ripple2.style.opacity = Math.max(0,op2);
+    },16);
+  }
+}
+
+function cycleState(){
+  if(turbAnim){ clearInterval(turbAnim); turbAnim = null; }
+  stateIdx = (stateIdx + 1) % STATES.length;
+  applyState(STATES[stateIdx]);
+}
+
+function triggerRoughDay(){
+  const btn = event.currentTarget;
+  btn.style.color = 'hsla(150,60%,65%,.9)';
+  btn.style.borderColor = 'hsla(150,60%,50%,.2)';
+  setTimeout(()=>{ btn.style.color=''; btn.style.borderColor=''; },1200);
+}
+function triggerWall(){
+  const btn = event.currentTarget;
+  btn.style.color = 'hsla(32,90%,58%,.9)';
+  btn.style.borderColor = 'hsla(32,90%,58%,.2)';
+  setTimeout(()=>{ btn.style.color=''; btn.style.borderColor=''; },1200);
+}
+
+// init
+applyState('idle');
+</script>
+</body>
+</html>

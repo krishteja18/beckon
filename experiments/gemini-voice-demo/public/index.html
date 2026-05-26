@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gemini Voice Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Gemini Voice Demo</h1>
+      <p class="sub">Local sandbox for testing Gemini Live native-audio. <span id="model">…</span></p>
+      <p class="sub"><span id="persona">…</span></p>
+
+      <div class="controls">
+        <button id="start">Start talking</button>
+        <button id="stop" disabled>Stop</button>
+      </div>
+
+      <p class="status">Status: <span id="status">idle</span></p>
+
+      <section class="transcript" aria-label="transcript">
+        <h2>Transcript</h2>
+        <div id="log"></div>
+      </section>
+
+      <details>
+        <summary>Text input (debug)</summary>
+        <form id="textForm">
+          <input id="textInput" type="text" placeholder="Type a message to send instead of speaking" />
+          <button type="submit">Send</button>
+        </form>
+      </details>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

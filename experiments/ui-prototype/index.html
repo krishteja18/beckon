@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Showup</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    html, body {
+      background: #05060A;
+      font-family: 'Inter', system-ui, sans-serif;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+
+    /* ── Breathing (IDLE) ── */
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 14px rgba(124,58,237,0.45), 0 0 28px rgba(124,58,237,0.15); transform: scale(1); }
+      50%       { box-shadow: 0 0 22px rgba(124,58,237,0.75), 0 0 50px rgba(124,58,237,0.25); transform: scale(1.04); }
+    }
+
+    /* ── Listening blobs ── */
+    @keyframes blob-a {
+      0%,100% { transform: translate(0px,  0px) scale(1); }
+      30%     { transform: translate(9px, -11px) scale(1.12); }
+      65%     { transform: translate(-7px,  7px) scale(0.88); }
+    }
+    @keyframes blob-b {
+      0%,100% { transform: translate(0px,  0px) scale(1); }
+      30%     { transform: translate(-11px, 9px) scale(0.85); }
+      65%     { transform: translate(7px,  -7px) scale(1.18); }
+    }
+    @keyframes blob-c {
+      0%,100% { transform: translate(0px,  0px) scale(1); }
+      30%     { transform: translate(5px,  11px) scale(1.08); }
+      65%     { transform: translate(-9px, -5px) scale(0.94); }
+    }
+
+    /* ── Processing orbital dots ── */
+    @keyframes orbit-a {
+      from { transform: rotate(0deg)   translateX(38px) rotate(0deg); }
+      to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+    }
+    @keyframes orbit-b {
+      from { transform: rotate(120deg)  translateX(38px) rotate(-120deg); }
+      to   { transform: rotate(480deg)  translateX(38px) rotate(-480deg); }
+    }
+    @keyframes orbit-c {
+      from { transform: rotate(240deg)  translateX(38px) rotate(-240deg); }
+      to   { transform: rotate(600deg)  translateX(38px) rotate(-600deg); }
+    }
+    @keyframes spin-ring {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* ── Speaking volumetric pulse ── */
+    @keyframes speak-core {
+      0%,100% { transform: scale(1);    box-shadow: 0 0 28px rgba(124,58,237,0.8), 0 0 60px rgba(124,58,237,0.3); }
+      20%     { transform: scale(1.09); box-shadow: 0 0 40px rgba(167,139,250,0.9), 0 0 80px rgba(124,58,237,0.4); }
+      50%     { transform: scale(0.95); box-shadow: 0 0 20px rgba(124,58,237,0.6), 0 0 40px rgba(124,58,237,0.2); }
+      75%     { transform: scale(1.07); box-shadow: 0 0 36px rgba(196,181,253,0.85),0 0 70px rgba(124,58,237,0.35); }
+    }
+    @keyframes speak-ring {
+      0%   { transform: scale(1);   opacity: 0.55; }
+      100% { transform: scale(2.4); opacity: 0; }
+    }
+
+    /* ── Timeline card entry ── */
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in { animation: slide-in 0.45s cubic-bezier(0.16,1,0.3,1) forwards; opacity: 0; }
+
+    /* ── Smart summary overlay ── */
+    @keyframes card-up {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .card-up { animation: card-up 0.35s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+    /* ── Glass surface ── */
+    .glass {
+      background: rgba(255,255,255,0.015);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .glass-active {
+      background: rgba(124,58,237,0.06);
+      border-color: rgba(124,58,237,0.18);
+    }
+    .glass-done {
+      background: rgba(255,255,255,0.010);
+    }
+
+    /* Scrollbar hidden */
+    .no-scroll { overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .no-scroll::-webkit-scrollbar { display: none; }
+
+    /* Tap highlight off */
+    * { -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ── Data ── */
+    const STATES = ['IDLE','LISTENING','PROCESSING','SPEAKING'];
+
+    const TIMELINE = [
+      { time:'06:45 AM', title:'AM Ignition',       sub:'Morning sync · Atomic Habits',      status:'done' },
+      { time:'09:00 AM', title:'Deep Work Block',    sub:'90-min focus · Deep Work',           status:'done' },
+      { time:'12:30 PM', title:'Lunch Mindfulness',  sub:'Breathing reset · Ikigai',           status:'active' },
+      { time:'06:00 PM', title:'Gym Session',         sub:'Strength training · Atomic Habits', status:'upcoming' },
+      { time:'08:30 PM', title:'Evening Walk',         sub:'Recovery · Ikigai',                 status:'upcoming' },
+      { time:'10:00 PM', title:'PM Debrief',           sub:'Evening retro · All goals',         status:'upcoming' },
+    ];
+
+    const SUMMARY_ITEMS = [
+      { icon:'🎯', label:'Daily priority', value:'Complete TypeScript architecture review' },
+      { icon:'⚡', label:'Outcome',         value:'Deep Work block completed — 94 min logged' },
+      { icon:'📍', label:'Next anchor',     value:'Gym Session at 06:00 PM' },
+    ];
+
+    /* ── Voice Ball ── */
+    function VoiceBall({ state, onClick }) {
+      const isIdle       = state === 'IDLE';
+      const isListening  = state === 'LISTENING';
+      const isProcessing = state === 'PROCESSING';
+      const isSpeaking   = state === 'SPEAKING';
+
+      return (
+        <div
+          onClick={onClick}
+          style={{ position:'relative', width:88, height:88, cursor:'pointer', userSelect:'none' }}
+        >
+          {/* Hidden SVG gooey filter */}
+          <svg style={{ position:'absolute', width:0, height:0, overflow:'hidden' }}>
+            <defs>
+              <filter id="goo" x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+                <feColorMatrix in="blur" mode="matrix"
+                  values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10"
+                  result="goo" />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+              </filter>
+            </defs>
+          </svg>
+
+          {/* Speaking ripple rings */}
+          {isSpeaking && [0,1,2].map(i => (
+            <div key={i} style={{
+              position:'absolute', top:'50%', left:'50%',
+              width:72, height:72,
+              marginTop:-36, marginLeft:-36,
+              borderRadius:'50%',
+              border:'1px solid rgba(124,58,237,0.45)',
+              animation:`speak-ring ${0.9+i*0.35}s ease-out infinite`,
+              animationDelay:`${i*0.22}s`,
+              pointerEvents:'none',
+            }} />
+          ))}
+
+          {/* Processing dashed ring */}
+          {isProcessing && (
+            <div style={{
+              position:'absolute', top:'50%', left:'50%',
+              width:84, height:84,
+              marginTop:-42, marginLeft:-42,
+              borderRadius:'50%',
+              border:'1px dashed rgba(124,58,237,0.25)',
+              animation:'spin-ring 3s linear infinite',
+              pointerEvents:'none',
+            }} />
+          )}
+
+          {/* Gooey container — blobs + core */}
+          <div style={{
+            position:'absolute', inset:0,
+            filter: (isListening || isProcessing) ? 'url(#goo)' : 'none',
+          }}>
+            {/* Core sphere */}
+            <div style={{
+              position:'absolute',
+              top:'50%', left:'50%',
+              width:68, height:68,
+              marginTop:-34, marginLeft:-34,
+              borderRadius:'50%',
+              background:'radial-gradient(circle at 32% 32%, rgba(196,181,253,0.95), rgba(124,58,237,0.98) 45%, rgba(8,4,20,0.99) 80%)',
+              animation: isIdle    ? 'breathe 4s ease-in-out infinite'
+                       : isSpeaking ? 'speak-core 0.65s ease-in-out infinite'
+                       : 'none',
+              boxShadow: isListening  ? '0 0 30px rgba(124,58,237,0.8), 0 0 60px rgba(124,58,237,0.25)'
+                       : isProcessing ? '0 0 20px rgba(124,58,237,0.55)'
+                       : isSpeaking   ? '0 0 36px rgba(167,139,250,0.9), 0 0 70px rgba(124,58,237,0.35)'
+                       :                '0 0 14px rgba(124,58,237,0.45), 0 0 30px rgba(124,58,237,0.12)',
+              transition:'box-shadow 0.4s ease',
+            }} />
+
+            {/* Listening morph blobs */}
+            {isListening && [
+              { anim:'blob-a 2.1s ease-in-out infinite', dx:0,  dy:-2  },
+              { anim:'blob-b 2.5s ease-in-out infinite', dx:-2, dy:4   },
+              { anim:'blob-c 1.9s ease-in-out infinite', dx:3,  dy:0   },
+            ].map((b,i) => (
+              <div key={i} style={{
+                position:'absolute',
+                top:`calc(50% - 16px + ${b.dy}px)`,
+                left:`calc(50% - 16px + ${b.dx}px)`,
+                width:32, height:32,
+                borderRadius:'50%',
+                background:'rgba(124,58,237,0.88)',
+                animation:b.anim,
+              }} />
+            ))}
+          </div>
+
+          {/* Processing orbital dots (outside goo filter so they stay crisp) */}
+          {isProcessing && (
+            <div style={{ position:'absolute', top:'50%', left:'50%', width:0, height:0 }}>
+              {[
+                { anim:'orbit-a 1.1s linear infinite', color:'#a78bfa' },
+                { anim:'orbit-b 1.1s linear infinite', color:'#c4b5fd' },
+                { anim:'orbit-c 1.1s linear infinite', color:'#7C3AED' },
+              ].map((o,i) => (
+                <div key={i} style={{
+                  position:'absolute',
+                  width:6, height:6,
+                  marginTop:-3, marginLeft:-3,
+                  borderRadius:'50%',
+                  background:o.color,
+                  boxShadow:`0 0 8px ${o.color}`,
+                  animation:o.anim,
+                }} />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ── Timeline item ── */
+    function TimelineItem({ item, index, isLast }) {
+      const dot = {
+        done:     { bg:'rgba(134,239,172,0.75)', shadow:'rgba(134,239,172,0.3)' },
+        active:   { bg:'rgba(167,139,250,0.9)',  shadow:'rgba(124,58,237,0.5)'  },
+        upcoming: { bg:'rgba(255,255,255,0.12)', shadow:'transparent'           },
+      }[item.status];
+
+      return (
+        <div className="slide-in flex gap-3" style={{ animationDelay:`${index*0.07}s` }}>
+          {/* Timestamp column */}
+          <div className="mono" style={{
+            width:64, flexShrink:0, paddingTop:15, textAlign:'right',
+            fontSize:10.5, letterSpacing:'-0.02em', lineHeight:1,
+            color: item.status === 'upcoming' ? 'rgba(255,255,255,0.22)'
+                 : item.status === 'active'   ? 'rgba(200,185,255,0.6)'
+                 :                              'rgba(255,255,255,0.3)',
+          }}>
+            {item.time}
+          </div>
+
+          {/* Thread column */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', paddingTop:14 }}>
+            <div style={{
+              width:7, height:7, borderRadius:'50%', flexShrink:0,
+              background:dot.bg,
+              boxShadow:`0 0 8px ${dot.shadow}`,
+            }} />
+            {!isLast && (
+              <div style={{
+                width:1, flexGrow:1, marginTop:5,
+                background:'linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
+                minHeight:20,
+              }} />
+            )}
+          </div>
+
+          {/* Card */}
+          <div
+            className={`rounded-2xl flex-1 px-4 py-3 mb-2 glass ${item.status === 'active' ? 'glass-active' : item.status === 'done' ? 'glass-done' : ''}`}
+          >
+            <div style={{
+              fontSize:13.5, fontWeight:500, letterSpacing:'-0.025em', lineHeight:1.3,
+              color: item.status === 'done'   ? 'rgba(255,255,255,0.25)'
+                   : item.status === 'active' ? 'rgba(220,210,255,0.95)'
+                   :                            'rgba(255,255,255,0.55)',
+              textDecoration:    item.status === 'done' ? 'line-through' : 'none',
+              textDecorationColor:'rgba(255,255,255,0.12)',
+            }}>
+              {item.title}
+              {item.status === 'active' && (
+                <span style={{
+                  display:'inline-block', marginLeft:8, fontSize:9,
+                  padding:'2px 7px', borderRadius:99,
+                  background:'rgba(124,58,237,0.25)', color:'rgba(196,181,253,0.9)',
+                  fontFamily:'JetBrains Mono, monospace', letterSpacing:'0.06em',
+                  textDecoration:'none', verticalAlign:'middle',
+                }}>LIVE</span>
+              )}
+            </div>
+            <div style={{
+              fontSize:11, marginTop:3, letterSpacing:'0.005em',
+              color:'rgba(255,255,255,0.18)',
+            }}>
+              {item.sub}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Smart Summary Overlay ── */
+    function SummaryCard({ onDismiss }) {
+      const [progress, setProgress] = useState(100);
+
+      useEffect(() => {
+        const start = Date.now();
+        const duration = 5000;
+        const raf = requestAnimationFrame(function tick() {
+          const elapsed = Date.now() - start;
+          const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+          setProgress(remaining);
+          if (remaining > 0) requestAnimationFrame(tick);
+          else onDismiss();
+        });
+        return () => cancelAnimationFrame(raf);
+      }, []);
+
+      return (
+        <div style={{
+          position:'absolute', inset:0, zIndex:50,
+          background:'rgba(5,6,10,0.75)',
+          backdropFilter:'blur(12px)',
+          display:'flex', alignItems:'flex-end', padding:'0 16px 120px',
+        }} onClick={onDismiss}>
+          <div
+            className="card-up glass rounded-3xl w-full p-5"
+            style={{ borderColor:'rgba(124,58,237,0.15)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Progress bar */}
+            <div style={{
+              height:2, background:'rgba(255,255,255,0.06)',
+              borderRadius:99, marginBottom:16, overflow:'hidden',
+            }}>
+              <div style={{
+                height:'100%', width:`${progress}%`,
+                background:'linear-gradient(90deg, rgba(124,58,237,0.6), rgba(196,181,253,0.8))',
+                borderRadius:99, transition:'width 0.1s linear',
+              }} />
+            </div>
+
+            <div className="mono" style={{
+              fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase',
+              color:'rgba(167,139,250,0.6)', marginBottom:12,
+            }}>
+              Captured from voice session
+            </div>
+
+            {SUMMARY_ITEMS.map((s,i) => (
+              <div key={i} style={{
+                display:'flex', gap:10, alignItems:'flex-start',
+                padding:'8px 0',
+                borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+              }}>
+                <span style={{ fontSize:14, opacity:0.7, flexShrink:0, paddingTop:1 }}>{s.icon}</span>
+                <div>
+                  <div style={{ fontSize:9.5, color:'rgba(255,255,255,0.25)', letterSpacing:'0.06em', textTransform:'uppercase', marginBottom:3 }}>
+                    {s.label}
+                  </div>
+                  <div style={{ fontSize:12.5, color:'rgba(255,255,255,0.7)', letterSpacing:'-0.01em', lineHeight:1.4 }}>
+                    {s.value}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Root App ── */
+    function App() {
+      const [stateIdx, setStageIdx]     = useState(0);
+      const [showSummary, setShowSummary] = useState(false);
+
+      const voiceState = STATES[stateIdx];
+
+      const cycleState = () => {
+        const next = (stateIdx + 1) % STATES.length;
+        setStageIdx(next);
+        // After SPEAKING → show summary
+        if (STATES[next] === 'IDLE' && stateIdx === STATES.length - 1) {
+          setTimeout(() => setShowSummary(true), 300);
+        }
+      };
+
+      const today = new Date().toLocaleDateString('en-US',{
+        weekday:'long', month:'short', day:'numeric',
+      });
+
+      const stateLabel = {
+        IDLE:       'tap to speak',
+        LISTENING:  'listening...',
+        PROCESSING: 'thinking...',
+        SPEAKING:   'speaking',
+      }[voiceState];
+
+      const stateLabelColor = {
+        IDLE:       'rgba(255,255,255,0.15)',
+        LISTENING:  'rgba(167,139,250,0.7)',
+        PROCESSING: 'rgba(196,181,253,0.65)',
+        SPEAKING:   'rgba(220,210,255,0.85)',
+      }[voiceState];
+
+      return (
+        <div style={{
+          background:'#05060A',
+          height:'100dvh',
+          maxWidth:390,
+          margin:'0 auto',
+          display:'flex',
+          flexDirection:'column',
+          position:'relative',
+          overflow:'hidden',
+        }}>
+          {/* Ambient top glow */}
+          <div style={{
+            position:'absolute', top:-120, left:'50%', marginLeft:-180,
+            width:360, height:360, borderRadius:'50%',
+            background:'radial-gradient(circle, rgba(124,58,237,0.055) 0%, transparent 68%)',
+            pointerEvents:'none', zIndex:0,
+          }} />
+
+          {/* ── Header ── */}
+          <div style={{
+            display:'flex', alignItems:'flex-end', justifyContent:'space-between',
+            padding:'52px 24px 16px', position:'relative', zIndex:1,
+          }}>
+            <div>
+              <div style={{
+                fontSize:10.5, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase',
+                color:'rgba(255,255,255,0.2)', marginBottom:4,
+              }}>
+                Today
+              </div>
+              <div style={{
+                fontSize:17, fontWeight:500, letterSpacing:'-0.035em',
+                color:'rgba(255,255,255,0.72)',
+              }}>
+                {today}
+              </div>
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <div className="mono" style={{
+                fontSize:22, fontWeight:400, letterSpacing:'-0.05em',
+                color:'rgba(167,139,250,0.88)',
+                lineHeight:1,
+              }}>
+                92%
+              </div>
+              <div className="mono" style={{
+                fontSize:8.5, letterSpacing:'0.07em', textTransform:'uppercase',
+                color:'rgba(255,255,255,0.18)', marginTop:3,
+              }}>
+                7-day velocity
+              </div>
+            </div>
+          </div>
+
+          {/* Hairline divider */}
+          <div style={{ height:1, background:'rgba(255,255,255,0.04)', margin:'0 24px', flexShrink:0 }} />
+
+          {/* ── Timeline ── */}
+          <div className="no-scroll" style={{ flex:1, padding:'8px 16px 0', position:'relative', zIndex:1 }}>
+            {TIMELINE.map((item, i) => (
+              <TimelineItem key={i} item={item} index={i} isLast={i === TIMELINE.length - 1} />
+            ))}
+            <div style={{ height:160 }} />
+          </div>
+
+          {/* ── Bottom sheet ── */}
+          <div style={{
+            position:'absolute', bottom:0, left:0, right:0, zIndex:10,
+            padding:'0 20px 40px',
+            background:'linear-gradient(to top, #05060A 55%, rgba(5,6,10,0.9) 80%, transparent)',
+          }}>
+            {/* Escape hatch buttons */}
+            <div style={{ display:'flex', gap:10, marginBottom:22 }}>
+              {[
+                { label:'Rough Day',  symbol:'◌' },
+                { label:'Hit a Wall', symbol:'⊘' },
+              ].map(btn => (
+                <button
+                  key={btn.label}
+                  className="glass"
+                  style={{
+                    flex:1, borderRadius:16, padding:'11px 0',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+                    fontSize:11.5, fontWeight:500, letterSpacing:'-0.01em',
+                    color:'rgba(255,255,255,0.3)',
+                    cursor:'pointer', border:'1px solid rgba(255,255,255,0.05)',
+                    transition:'color 0.2s, border-color 0.2s',
+                  }}
+                  onPointerEnter={e => { e.currentTarget.style.color='rgba(255,255,255,0.6)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; }}
+                  onPointerLeave={e => { e.currentTarget.style.color='rgba(255,255,255,0.3)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.05)'; }}
+                >
+                  <span style={{ fontSize:13, opacity:0.55 }}>{btn.symbol}</span>
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Voice ball + label */}
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+              <div className="mono" style={{
+                fontSize:9, letterSpacing:'0.12em', textTransform:'uppercase',
+                color:stateLabelColor, transition:'color 0.35s ease',
+              }}>
+                {stateLabel}
+              </div>
+              <VoiceBall state={voiceState} onClick={cycleState} />
+            </div>
+          </div>
+
+          {/* ── Smart Summary Overlay ── */}
+          {showSummary && (
+            <SummaryCard onDismiss={() => setShowSummary(false)} />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

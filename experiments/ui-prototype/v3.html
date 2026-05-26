@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Showup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+html,body{height:100%;background:#020409;font-family:'Inter',sans-serif;overflow:hidden;color:hsla(220,25%,94%,.92)}
+.bg-aurora{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 30% at 50% -5%,hsla(210,90%,45%,.06) 0%,transparent 70%),radial-gradient(ellipse 60% 45% at 80% 110%,hsla(234,80%,50%,.05) 0%,transparent 65%)}
+.shell{position:relative;z-index:1;max-width:390px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;justify-content:space-between;align-items:flex-end;padding:52px 26px 18px;flex-shrink:0}
+.topbar-date{font-size:12px;font-weight:400;color:hsla(220,15%,70%,.42)}
+.vel-num{font-size:14px;font-weight:500;letter-spacing:-.02em;color:#38BDF8;text-align:right;font-variant-numeric:tabular-nums}
+.vel-label{font-size:9px;font-weight:400;letter-spacing:.09em;text-transform:uppercase;color:hsla(220,15%,65%,.2);margin-top:2px;text-align:right}
+.hero{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 26px;animation:fade-up .6s cubic-bezier(.16,1,.3,1) both}
+.next-label{font-size:9px;font-weight:500;letter-spacing:.13em;text-transform:uppercase;color:hsla(220,15%,65%,.2);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.next-label::before{content:'';width:16px;height:1px;background:hsla(220,15%,65%,.2)}
+.hero-time{font-size:80px;font-weight:100;letter-spacing:-.045em;line-height:.95;font-variant-numeric:tabular-nums}
+.hero-period{font-size:20px;font-weight:300;letter-spacing:.03em;color:hsla(220,15%,70%,.42);margin-left:5px;vertical-align:middle}
+.hero-goal{font-size:24px;font-weight:300;letter-spacing:-.025em;margin-top:12px;opacity:.85}
+.hero-meta{font-size:12px;font-weight:400;color:hsla(220,15%,70%,.42);margin-top:7px}
+.hero-meta span{color:#38BDF8;opacity:.75}
+.arc-wrap{margin-top:24px;position:relative;height:2px;background:hsla(220,30%,80%,.05);border-radius:99px}
+.arc-fill{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,hsla(199,95%,60%,.1),#38BDF8);border-radius:99px}
+.arc-dot{position:absolute;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:#38BDF8;box-shadow:0 0 7px #38BDF8;margin-left:-3px}
+.arc-pct{font-size:10px;color:hsla(220,15%,65%,.2);margin-top:7px;font-variant-numeric:tabular-nums}
+.div{height:1px;background:hsla(220,30%,80%,.05);margin:0 26px;flex-shrink:0}
+.strip-scroll{flex-shrink:0;overflow-x:auto;scrollbar-width:none;padding:14px 0 12px}
+.strip-scroll::-webkit-scrollbar{display:none}
+.strip{display:flex;gap:8px;padding:0 26px;width:max-content}
+.s-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 16px;border-radius:14px;border:1px solid hsla(220,30%,80%,.05);background:transparent;cursor:pointer;min-width:88px;transition:all .2s}
+.s-item.done{opacity:.28}
+.s-item.active{border-color:hsla(199,95%,60%,.2);background:hsla(199,95%,60%,.04)}
+.s-time{font-size:10px;font-weight:500;color:hsla(220,15%,70%,.42);font-variant-numeric:tabular-nums}
+.s-dot{width:5px;height:5px;border-radius:50%}
+.s-item.done .s-dot{background:hsla(150,40%,55%,.5)}
+.s-item.active .s-dot{background:#38BDF8;box-shadow:0 0 6px #38BDF8}
+.s-item.upcoming .s-dot{background:hsla(220,15%,65%,.2)}
+.s-name{font-size:10px;font-weight:400;color:hsla(220,15%,70%,.42);text-align:center;line-height:1.3;letter-spacing:-.01em}
+.bottom{flex-shrink:0;padding:14px 22px 42px;display:flex;flex-direction:column;align-items:center;gap:18px;background:linear-gradient(to top,#020409 60%,transparent)}
+.escape-row{display:flex;gap:9px;width:100%}
+.esc-btn{flex:1;padding:11px 0;border-radius:13px;border:1px solid hsla(220,30%,80%,.05);background:rgba(255,255,255,.012);font-size:11.5px;font-weight:400;color:hsla(220,15%,70%,.42);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;font-family:'Inter',sans-serif}
+.esc-btn:hover,.esc-btn:active{color:hsla(220,25%,94%,.92);border-color:hsla(220,30%,80%,.1);background:rgba(255,255,255,.02)}
+.voice-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+.voice-state{font-size:9px;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:hsla(220,15%,65%,.2);transition:color .5s;min-height:12px}
+.voice-state.lit{color:hsla(199,95%,65%,.75)}
+.ball-outer{position:relative;cursor:pointer;border-radius:50%}
+@keyframes fade-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div class="bg-aurora"></div>
+<div class="shell">
+  <div class="topbar">
+    <div class="topbar-date" id="date-el"></div>
+    <div><div class="vel-num">92%</div><div class="vel-label">7-day velocity</div></div>
+  </div>
+  <div class="hero">
+    <div class="next-label">Next call</div>
+    <div><span class="hero-time">06:00</span><span class="hero-period">PM</span></div>
+    <div class="hero-goal">Gym Session</div>
+    <div class="hero-meta">Strength training · Atomic Habits · <span>34 min away</span></div>
+    <div class="arc-wrap">
+      <div class="arc-fill" id="arc-fill"></div>
+      <div class="arc-dot" id="arc-dot"></div>
+    </div>
+    <div class="arc-pct" id="arc-pct"></div>
+  </div>
+  <div class="div"></div>
+  <div class="strip-scroll"><div class="strip" id="strip"></div></div>
+  <div class="div"></div>
+  <div class="bottom">
+    <div class="escape-row">
+      <button class="esc-btn" id="btn-rough">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.1"><circle cx="6.5" cy="6.5" r="5"/><line x1="6.5" y1="3.5" x2="6.5" y2="7"/><circle cx="6.5" cy="9.5" r=".6" fill="currentColor"/></svg>Rough Day
+      </button>
+      <button class="esc-btn" id="btn-wall">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M2 6.5h9M7.5 3l4 3.5-4 3.5"/></svg>Hit a Wall
+      </button>
+    </div>
+    <div class="voice-wrap">
+      <div class="voice-state" id="v-label">tap to speak</div>
+      <div class="ball-outer" id="ball-outer" onclick="cycleState()">
+        <canvas id="C" width="300" height="300" style="width:88px;height:88px;border-radius:50%;display:block"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── init ui ── */
+const now=new Date();
+document.getElementById('date-el').textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+const pct=(now.getHours()*60+now.getMinutes())/(24*60);
+document.getElementById('arc-fill').style.width=(pct*100).toFixed(1)+'%';
+document.getElementById('arc-dot').style.left=(pct*100).toFixed(1)+'%';
+document.getElementById('arc-pct').textContent=Math.round(pct*100)+'% of day gone';
+const TL=[{t:'6:45 AM',n:'AM Ignition',s:'done'},{t:'9:00 AM',n:'Deep Work',s:'done'},{t:'12:30 PM',n:'Lunch Reset',s:'done'},{t:'6:00 PM',n:'Gym Session',s:'active'},{t:'8:30 PM',n:'Evening Walk',s:'upcoming'},{t:'10:00 PM',n:'PM Debrief',s:'upcoming'}];
+const strip=document.getElementById('strip');
+TL.forEach(i=>{const e=document.createElement('div');e.className='s-item '+i.s;e.innerHTML=`<div class="s-time">${i.t}</div><div class="s-dot"></div><div class="s-name">${i.n}</div>`;strip.appendChild(e);});
+
+/* ══════════════════════════════
+   GLASS PLASMA ORB
+   ══════════════════════════════ */
+const cv=document.getElementById('C');
+const cx=cv.getContext('2d');
+const S=300, H=150; // size, half
+
+const STATES=['idle','listening','processing','speaking'];
+let si=0, T=0;
+
+/* Per-state palette */
+const PAL={
+  idle:      {speed:.22, intensity:.7,  c1:[56,189,248],  c2:[14,116,180],  c3:[4,30,65],   bright:[180,230,255]},
+  listening: {speed:.55, intensity:.85, c1:[56,189,248],  c2:[14,116,180],  c3:[4,30,65],   bright:[180,230,255]},
+  processing:{speed:1.5, intensity:1.0, c1:[56,189,248],  c2:[14,116,180],  c3:[4,30,65],   bright:[200,235,255]},
+  speaking:  {speed:.9,  intensity:1.15,c1:[56,189,248],  c2:[14,116,180],  c3:[4,30,65],   bright:[220,245,255]},
+};
+
+function r(arr,a){return `rgba(${arr[0]},${arr[1]},${arr[2]},${a.toFixed(3)})`}
+
+/* Draw one wide fluid band with bloom layers */
+function fluidBand(sx,sy,cp1x,cp1y,cp2x,cp2y,ex,ey, col1,col2,bright, intensity){
+  const BLOOM=[
+    {w:62,a:.018},{w:46,a:.030},{w:32,a:.048},{w:22,a:.072},
+    {w:14,a:.110},{w:8, a:.170},{w:4, a:.260},{w:1.8,a:.480}
+  ];
+  for(const b of BLOOM){
+    cx.beginPath();
+    cx.moveTo(sx,sy);
+    cx.bezierCurveTo(cp1x,cp1y,cp2x,cp2y,ex,ey);
+    const g=cx.createLinearGradient(sx,sy,ex,ey);
+    const a=b.a*intensity;
+    g.addColorStop(0,  r(col2,  a*.3));
+    g.addColorStop(.2, r(col1,  a*.7));
+    g.addColorStop(.5, r(bright,a*1.1));
+    g.addColorStop(.75,r(col1,  a*.8));
+    g.addColorStop(1,  r(col2,  a*.25));
+    cx.strokeStyle=g;
+    cx.lineWidth=b.w;
+    cx.lineCap='round';
+    cx.globalCompositeOperation='screen';
+    cx.stroke();
+  }
+}
+
+/* Draw caustic bright blob */
+function causticBlob(bx,by,pal,intensity){
+  const LAYERS=[
+    {r:55,a:.10},{r:35,a:.18},{r:20,a:.32},{r:10,a:.55},{r:4,a:.80}
+  ];
+  for(const l of LAYERS){
+    const g=cx.createRadialGradient(bx,by,0,bx,by,l.r);
+    g.addColorStop(0,  r(pal.bright, l.a*intensity));
+    g.addColorStop(.5, r(pal.c1,     l.a*intensity*.5));
+    g.addColorStop(1,  r(pal.c1,     0));
+    cx.globalCompositeOperation='screen';
+    cx.fillStyle=g;
+    cx.beginPath();cx.arc(H,H,H*.97,0,Math.PI*2);cx.fill();
+  }
+}
+
+function drawOrb(state,t){
+  const pal=PAL[state];
+  const spd=pal.speed;
+
+  cx.globalCompositeOperation='source-over';
+  cx.clearRect(0,0,S,S);
+
+  /* ── outer ambient glow ── */
+  const aG=cx.createRadialGradient(H,H,H*.8,H,H,H*1.6);
+  aG.addColorStop(0,r(pal.c1,.12));
+  aG.addColorStop(.6,r(pal.c1,.04));
+  aG.addColorStop(1,r(pal.c1,0));
+  cx.fillStyle=aG;
+  cx.beginPath();cx.arc(H,H,H*1.6,0,Math.PI*2);cx.fill();
+
+  /* ── dark glass base sphere ── */
+  const bG=cx.createRadialGradient(H-18,H-20,0,H,H,H*.98);
+  bG.addColorStop(0,  `rgb(${pal.c3.map(v=>Math.min(255,v+15)).join(',')})`);
+  bG.addColorStop(.5, `rgb(${pal.c3.map(v=>Math.max(0,Math.round(v*.6))).join(',')})`);
+  bG.addColorStop(1,  '#01030b');
+  cx.globalCompositeOperation='source-over';
+  cx.fillStyle=bG;
+  cx.beginPath();cx.arc(H,H,H*.98,0,Math.PI*2);cx.fill();
+
+  /* ── clip all fluid to sphere ── */
+  cx.save();
+  cx.beginPath();cx.arc(H,H,H*.97,0,Math.PI*2);cx.clip();
+
+  /* ── fluid band 1: main S-sweep ── */
+  const rot1=t*spd;
+  const sr=H*.78;
+  /* start point sweeps around lower-left */
+  const ax1=H+Math.cos(rot1+Math.PI*.85)*sr;
+  const ay1=H+Math.sin(rot1+Math.PI*.85)*sr*.82;
+  /* end point sweeps upper-right */
+  const bx1=H+Math.cos(rot1-Math.PI*.55)*sr*.88;
+  const by1=H+Math.sin(rot1-Math.PI*.55)*sr*.75;
+  /* control points create the S-curve */
+  const cp1x=H+Math.cos(rot1+Math.PI*.1)*H*.62;
+  const cp1y=H+Math.sin(rot1+Math.PI*.1)*H*.55;
+  const cp2x=H+Math.cos(rot1-Math.PI*.9)*H*.58;
+  const cp2y=H+Math.sin(rot1-Math.PI*.9)*H*.52;
+  fluidBand(ax1,ay1,cp1x,cp1y,cp2x,cp2y,bx1,by1,pal.c1,pal.c2,pal.bright,pal.intensity);
+
+  /* ── fluid band 2: counter-sweep for depth ── */
+  const rot2=t*spd*.7+Math.PI*.65;
+  const ax2=H+Math.cos(rot2)*H*.68;
+  const ay2=H+Math.sin(rot2)*H*.65;
+  const bx2=H+Math.cos(rot2+Math.PI*1.1)*H*.72;
+  const by2=H+Math.sin(rot2+Math.PI*1.1)*H*.6;
+  const cp3x=H+Math.cos(rot2+Math.PI*.35)*H*.38;
+  const cp3y=H+Math.sin(rot2+Math.PI*.35)*H*.42;
+  const cp4x=H+Math.cos(rot2+Math.PI*.75)*H*.45;
+  const cp4y=H+Math.sin(rot2+Math.PI*.75)*H*.38;
+  fluidBand(ax2,ay2,cp3x,cp3y,cp4x,cp4y,bx2,by2,pal.c1,pal.c2,pal.bright,pal.intensity*.65);
+
+  /* ── fluid band 3: inner swirl ── */
+  const rot3=t*spd*1.15+Math.PI*1.3;
+  const ir=H*.42;
+  const ax3=H+Math.cos(rot3)*ir;
+  const ay3=H+Math.sin(rot3)*ir;
+  const bx3=H+Math.cos(rot3+Math.PI*1.25)*ir*.9;
+  const by3=H+Math.sin(rot3+Math.PI*1.25)*ir*.85;
+  const icp1x=H+Math.cos(rot3+Math.PI*.3)*H*.28;
+  const icp1y=H+Math.sin(rot3+Math.PI*.3)*H*.28;
+  const icp2x=H+Math.cos(rot3+Math.PI*.85)*H*.32;
+  const icp2y=H+Math.sin(rot3+Math.PI*.85)*H*.25;
+  fluidBand(ax3,ay3,icp1x,icp1y,icp2x,icp2y,bx3,by3,pal.bright,pal.c1,pal.bright,pal.intensity*.5);
+
+  /* ── caustic blobs: 2 bright hotspots ── */
+  const blob1x=H+Math.sin(t*spd*.6)*H*.28;
+  const blob1y=H+Math.cos(t*spd*.5)*H*.24;
+  causticBlob(blob1x,blob1y,pal,pal.intensity);
+
+  const blob2x=H+Math.sin(t*spd*.45+2.1)*H*.22;
+  const blob2y=H+Math.cos(t*spd*.4+1.8)*H*.2;
+  causticBlob(blob2x,blob2y,pal,pal.intensity*.55);
+
+  /* ── speaking pulse: extra brightness surge ── */
+  if(state==='speaking'){
+    const pulse=.5+Math.sin(t*7)*.3+Math.sin(t*11)*.15;
+    const pG=cx.createRadialGradient(H,H,0,H,H,H*.5);
+    pG.addColorStop(0,r(pal.bright,pulse*.28));
+    pG.addColorStop(1,r(pal.bright,0));
+    cx.globalCompositeOperation='screen';
+    cx.fillStyle=pG;
+    cx.beginPath();cx.arc(H,H,H*.97,0,Math.PI*2);cx.fill();
+  }
+
+  /* ── processing: fast inner rotation ring ── */
+  if(state==='processing'){
+    cx.globalCompositeOperation='screen';
+    const numPts=24;
+    for(let i=0;i<numPts;i++){
+      const a=(i/numPts)*Math.PI*2+t*3.5;
+      const pr=H*.55;
+      const px=H+Math.cos(a)*pr, py=H+Math.sin(a)*pr;
+      const pAlpha=(.15+Math.abs(Math.sin(t*4+i))*.25);
+      cx.beginPath();cx.arc(px,py,2,0,Math.PI*2);
+      cx.fillStyle=r(pal.bright,pAlpha);cx.fill();
+    }
+  }
+
+  cx.restore();
+
+  /* ── glass rim: edge catch light ── */
+  cx.globalCompositeOperation='source-over';
+  /* dark edge vignette */
+  const vG=cx.createRadialGradient(H,H,H*.62,H,H,H*.99);
+  vG.addColorStop(0,'rgba(0,0,0,0)');
+  vG.addColorStop(.82,'rgba(0,0,0,.04)');
+  vG.addColorStop(.95,'rgba(0,0,0,.60)');
+  vG.addColorStop(1,'rgba(0,0,0,.85)');
+  cx.fillStyle=vG;cx.beginPath();cx.arc(H,H,H*.99,0,Math.PI*2);cx.fill();
+
+  /* glass rim glow */
+  cx.beginPath();cx.arc(H,H,H*.97,0,Math.PI*2);
+  cx.strokeStyle=r(pal.c1,.18);cx.lineWidth=1.5;cx.stroke();
+
+  /* ── specular highlight ── */
+  const spG=cx.createRadialGradient(H-H*.32,H-H*.34,0,H-H*.1,H-H*.1,H*.46);
+  spG.addColorStop(0,'rgba(255,255,255,.30)');
+  spG.addColorStop(.3,'rgba(255,255,255,.10)');
+  spG.addColorStop(.7,'rgba(255,255,255,.03)');
+  spG.addColorStop(1,'rgba(255,255,255,0)');
+  cx.fillStyle=spG;cx.beginPath();cx.arc(H,H,H*.97,0,Math.PI*2);cx.fill();
+
+  /* ── speaking outer rings ── */
+  if(state==='speaking'){
+    for(let i=0;i<3;i++){
+      const rp=((T*1.8+i*.8)%2.5);
+      const rr=H*(.97+rp*.55);
+      const ro=Math.max(0,(.45-rp*.22));
+      cx.beginPath();cx.arc(H,H,rr,0,Math.PI*2);
+      cx.strokeStyle=r(pal.c1,ro);cx.lineWidth=.8;cx.stroke();
+    }
+  }
+}
+
+/* ── loop ── */
+(function loop(){T+=.016;drawOrb(STATES[si],T);requestAnimationFrame(loop);})();
+
+/* ── state ── */
+const vL=document.getElementById('v-label');
+const LBL={idle:'tap to speak',listening:'listening...',processing:'thinking...',speaking:'speaking'};
+function cycleState(){si=(si+1)%4;const s=STATES[si];vL.textContent=LBL[s];vL.className='voice-state'+(s!=='idle'?' lit':'');}
+
+document.getElementById('btn-rough').addEventListener('click',function(){this.style.color='hsla(150,60%,65%,.9)';this.style.borderColor='hsla(150,60%,50%,.18)';setTimeout(()=>{this.style.color='';this.style.borderColor=''},900);});
+document.getElementById('btn-wall').addEventListener('click',function(){this.style.color='#38BDF8';this.style.borderColor='hsla(199,95%,60%,.2)';setTimeout(()=>{this.style.color='';this.style.borderColor=''},900);});
+</script>
+</body>
+</html>
