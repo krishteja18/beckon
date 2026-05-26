@@ -70,6 +70,15 @@
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "bfc668ac-0784-442b-8730-a5cfe29fe58c"
+      }
+    },
+    "owner": "krishnateja_777"
   }
 }
