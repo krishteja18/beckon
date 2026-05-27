@@ -1,6 +1,6 @@
 import '../global.css';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -12,7 +12,7 @@ import { startAuthLifecycle, supabase } from '../src/services/supabase';
 import { syncAlarms } from '../src/services/alarmScheduler';
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_100Thin,
     Inter_300Light,
     Inter_400Regular,
@@ -22,23 +22,29 @@ export default function RootLayout() {
     JetBrainsMono_500Medium,
   });
 
+  // Hard timeout: render the app within 1.5s no matter what, even if fonts
+  // never resolve. System fonts are a fine fallback — a blank white screen is not.
+  const [forceReady, setForceReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setForceReady(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     startAuthLifecycle();
 
-    // Re-arm alarms on every foreground (covers reboot recovery, schedule
-    // changes from other devices, OEM kill recovery). syncAlarms is idempotent
-    // and a no-op when no native module is linked (iOS / web / dev build).
     const sub = AppState.addEventListener('change', async (state) => {
       if (state !== 'active') return;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        syncAlarms().catch(e => console.warn('[layout] syncAlarms', e));
-      }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) syncAlarms().catch(() => {});
+      } catch {/* offline / not signed in */}
     });
     return () => sub.remove();
   }, []);
 
-  if (!fontsLoaded) return null;
+  const ready = fontsLoaded || !!fontError || forceReady;
+  if (!ready) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#020409' }}>
