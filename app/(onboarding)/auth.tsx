@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
 import { signInWithGoogle, signInWithApple, signInWithEmail } from '../../src/services/auth';
@@ -9,6 +9,7 @@ export default function Auth() {
   const [emailMode, setEmailMode] = useState(false);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const handleProvider = async (provider: 'apple' | 'google') => {
     try {
@@ -39,6 +40,8 @@ export default function Auth() {
     }
   };
 
+  const isEmailValid = email.includes('@');
+
   return (
     <OnboardingFrame
       step={1}
@@ -48,52 +51,62 @@ export default function Auth() {
       subtitle="Your goals stay private. We never sell or train on your data."
     >
       <View className="gap-3">
-        <ProviderButton label="Continue with Apple"  onPress={() => handleProvider('apple')} disabled={busy} />
-        <ProviderButton label="Continue with Google" onPress={() => handleProvider('google')} disabled={busy} />
+        <ProviderButton
+          label="Continue with Apple"
+          onPress={() => handleProvider('apple')}
+          disabled={busy}
+        />
+        <ProviderButton
+          label="Continue with Google"
+          onPress={() => handleProvider('google')}
+          disabled={busy}
+        />
 
-        <View className="flex-row items-center mt-4">
-          <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(204,218,240,0.05)' }} />
-          <Text style={{ color: 'rgba(150,160,185,0.3)', fontSize: 11, paddingHorizontal: 12, fontFamily: 'Inter_400Regular' }}>
-            or
-          </Text>
-          <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(204,218,240,0.05)' }} />
+        <View className="flex-row items-center my-5">
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {emailMode ? (
-          <View className="gap-3">
+          <View className="gap-4">
             <TextInput
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor="rgba(170,178,200,0.3)"
+              placeholderTextColor="rgba(170,178,200,0.25)"
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
-              style={{
-                color: '#EEF0F6',
-                fontSize: 16,
-                paddingVertical: 14,
-                paddingHorizontal: 16,
-                borderRadius: 14,
-                backgroundColor: 'rgba(255,255,255,0.04)',
-                borderWidth: 1,
-                borderColor: 'rgba(204,218,240,0.08)',
-                fontFamily: 'Inter_400Regular',
-              }}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              style={[
+                styles.textInput,
+                inputFocused && styles.textInputFocused,
+              ]}
             />
             <Pressable
               onPress={handleEmail}
-              disabled={busy || !email.includes('@')}
-              style={{
-                backgroundColor: email.includes('@') ? '#38BDF8' : 'rgba(56,189,248,0.15)',
-                borderRadius: 14, paddingVertical: 14, alignItems: 'center',
-                opacity: busy ? 0.5 : 1,
-              }}
+              disabled={busy || !isEmailValid}
+              style={[
+                styles.emailSubmitButton,
+                isEmailValid && styles.emailSubmitButtonActive,
+                busy && { opacity: 0.5 },
+              ]}
             >
-              {busy
-                ? <ActivityIndicator color="#020409" />
-                : <Text style={{ color: '#020409', fontSize: 14, fontFamily: 'Inter_500Medium' }}>Send magic link</Text>
-              }
+              {busy ? (
+                <ActivityIndicator color="#03050C" />
+              ) : (
+                <Text
+                  style={{
+                    color: isEmailValid ? '#03050C' : 'rgba(255,255,255,0.3)',
+                    fontSize: 14.5,
+                    fontFamily: 'Inter_500Medium',
+                  }}
+                >
+                  Send magic link
+                </Text>
+              )}
             </Pressable>
           </View>
         ) : (
@@ -116,14 +129,86 @@ function ProviderButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={{
-        backgroundColor: variant === 'primary' ? 'rgba(255,255,255,0.06)' : 'transparent',
-        borderWidth: 1, borderColor: 'rgba(204,218,240,0.08)',
-        borderRadius: 14, paddingVertical: 14, alignItems: 'center',
-        opacity: disabled ? 0.5 : 1,
-      }}
+      style={[
+        styles.providerButton,
+        variant === 'secondary' && styles.providerButtonSecondary,
+        disabled && { opacity: 0.5 },
+      ]}
     >
-      <Text style={{ color: '#EEF0F6', fontSize: 14, fontFamily: 'Inter_500Medium' }}>{label}</Text>
+      <Text
+        style={{
+          color: variant === 'secondary' ? 'rgba(238, 240, 246, 0.75)' : '#EEF0F6',
+          fontSize: 14.5,
+          fontFamily: 'Inter_500Medium',
+        }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  providerButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 15,
+    paddingVertical: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  providerButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  dividerText: {
+    color: 'rgba(150, 160, 185, 0.35)',
+    fontSize: 11,
+    paddingHorizontal: 16,
+    fontFamily: 'JetBrainsMono_400Regular',
+    textTransform: 'uppercase',
+  },
+  textInput: {
+    color: '#EEF0F6',
+    fontSize: 15.5,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    fontFamily: 'Inter_400Regular',
+  },
+  textInputFocused: {
+    borderColor: '#38BDF8',
+    backgroundColor: 'rgba(56, 189, 248, 0.03)',
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  emailSubmitButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 15,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  emailSubmitButtonActive: {
+    backgroundColor: '#38BDF8',
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+});
