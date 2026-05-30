@@ -66,8 +66,7 @@
           }
         }
       ],
-      "expo-font",
-      "@sentry/react-native"
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": false
