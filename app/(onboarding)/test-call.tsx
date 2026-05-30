@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
 import { VoiceBall } from '../../src/components/VoiceBall';
@@ -43,11 +43,21 @@ export default function TestCallScreen() {
       }}
       secondary={{ label: 'Run a test call', onPress: handleTest }}
     >
-      <View className="flex-1 items-center justify-center gap-4">
-        <VoiceBall state="idle" size={140} />
-        {saving && <ActivityIndicator color="#38BDF8" />}
+      <View style={styles.container}>
+        {/* Floating Gemini Voice Orb with glowing backing halo */}
+        <View style={styles.orbWrapper}>
+          <VoiceBall state="speaking" size={170} />
+        </View>
+
+        {saving && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#38BDF8" />
+            <Text style={styles.savingText}>Finalizing your customized workspace...</Text>
+          </View>
+        )}
+
         {error && (
-          <Text style={{ color: '#FCA5A5', fontSize: 13, textAlign: 'center', paddingHorizontal: 20, fontFamily: 'Inter_400Regular' }}>
+          <Text style={styles.errorText}>
             {error}
           </Text>
         )}
@@ -55,3 +65,39 @@ export default function TestCallScreen() {
     </OnboardingFrame>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 40,
+  },
+  orbWrapper: {
+    shadowColor: '#a855f7',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.4,
+    shadowRadius: 28,
+    elevation: 10,
+    marginBottom: 40,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+  savingText: {
+    color: 'rgba(170, 178, 200, 0.7)',
+    fontSize: 13.5,
+    fontFamily: 'Inter_400Regular',
+  },
+  errorText: {
+    color: '#FCA5A5',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    fontFamily: 'Inter_400Regular',
+    marginTop: 10,
+  },
+});

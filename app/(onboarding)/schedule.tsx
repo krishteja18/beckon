@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
 import { onboarding } from '../../src/store/onboarding';
@@ -42,31 +42,67 @@ export default function ScheduleScreen() {
         disabled: picked.size === 0,
       }}
     >
-      <View className="flex-row flex-wrap gap-2">
-        {SUGGESTED_TIMES.map(t => (
-          <Pressable
-            key={t.value}
-            onPress={() => toggle(t.value)}
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 99,
-              borderWidth: 1,
-              borderColor: picked.has(t.value) ? 'rgba(56,189,248,0.4)' : 'rgba(204,218,240,0.08)',
-              backgroundColor: picked.has(t.value) ? 'rgba(56,189,248,0.08)' : 'rgba(255,255,255,0.012)',
-            }}
-          >
-            <Text style={{
-              color: picked.has(t.value) ? '#67E8F9' : 'rgba(238,240,246,0.7)',
-              fontSize: 13,
-              fontFamily: 'JetBrainsMono_500Medium',
-              letterSpacing: -0.3,
-            }}>
-              {t.label}
-            </Text>
-          </Pressable>
-        ))}
+      <View style={styles.grid}>
+        {SUGGESTED_TIMES.map(t => {
+          const isSelected = picked.has(t.value);
+          return (
+            <Pressable
+              key={t.value}
+              onPress={() => toggle(t.value)}
+              style={[
+                styles.capsule,
+                isSelected && styles.capsuleSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.label,
+                  isSelected && styles.labelSelected,
+                ]}
+              >
+                {t.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </OnboardingFrame>
   );
 }
+
+const styles = StyleSheet.create({
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+  },
+  capsule: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  capsuleSelected: {
+    borderColor: '#38BDF8',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  label: {
+    color: 'rgba(238, 240, 246, 0.65)',
+    fontSize: 14,
+    fontFamily: 'JetBrainsMono_500Medium',
+    letterSpacing: -0.3,
+  },
+  labelSelected: {
+    color: '#38BDF8',
+  },
+});

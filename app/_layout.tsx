@@ -10,8 +10,14 @@ import { useFonts, Inter_100Thin, Inter_300Light, Inter_400Regular, Inter_500Med
 import { JetBrainsMono_400Regular, JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { startAuthLifecycle, supabase } from '../src/services/supabase';
 import { syncAlarms } from '../src/services/alarmScheduler';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { initSentry, Sentry } from '../src/services/sentry';
 
-export default function RootLayout() {
+// Init Sentry at module load so it captures everything from the first frame.
+// No DSN configured → no-op.
+initSentry();
+
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_100Thin,
     Inter_300Light,
@@ -47,22 +53,30 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#020409' }}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: '#020409' },
-            animation: 'fade',
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(onboarding)" />
-          <Stack.Screen name="(app)" />
-          <Stack.Screen name="call" options={{ animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
-        </Stack>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#020409' }}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#020409' },
+              animation: 'fade',
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="call" options={{ animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
+          </Stack>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
+
+// Wrap with Sentry's HOC so it adds navigation breadcrumbs + auto error capture.
+// If Sentry isn't configured (no DSN), this is a thin passthrough.
+export default process.env.EXPO_PUBLIC_SENTRY_DSN
+  ? Sentry.wrap(RootLayout)
+  : RootLayout;

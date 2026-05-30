@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
 import { onboarding } from '../../src/store/onboarding';
@@ -33,31 +33,94 @@ export default function RetroTimeScreen() {
         disabled: !pick,
       }}
     >
-      <View className="gap-3">
-        {OPTIONS.map(t => (
-          <Pressable
-            key={t.value}
-            onPress={() => setPick(t.value)}
-            style={{
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: pick === t.value ? 'rgba(56,189,248,0.4)' : 'rgba(204,218,240,0.06)',
-              backgroundColor: pick === t.value ? 'rgba(56,189,248,0.06)' : 'rgba(255,255,255,0.012)',
-              paddingVertical: 18,
-              paddingHorizontal: 20,
-            }}
-          >
-            <Text style={{
-              color: '#EEF0F6',
-              fontSize: 20,
-              fontFamily: 'JetBrainsMono_500Medium',
-              letterSpacing: -0.5,
-            }}>
-              {t.label}
-            </Text>
-          </Pressable>
-        ))}
+      <View style={styles.list}>
+        {OPTIONS.map(t => {
+          const isSelected = pick === t.value;
+          return (
+            <Pressable
+              key={t.value}
+              onPress={() => setPick(t.value)}
+              style={[
+                styles.dial,
+                isSelected && styles.dialSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.label,
+                  isSelected && styles.labelSelected,
+                ]}
+              >
+                {t.label}
+              </Text>
+
+              {/* Selection Ring */}
+              <View
+                style={[
+                  styles.selectRing,
+                  isSelected && styles.selectRingSelected,
+                ]}
+              >
+                {isSelected && <View style={styles.selectDot} />}
+              </View>
+            </Pressable>
+          );
+        })}
       </View>
     </OnboardingFrame>
   );
 }
+
+const styles = StyleSheet.create({
+  list: {
+    gap: 12,
+    marginTop: 8,
+  },
+  dial: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+    paddingVertical: 18,
+    paddingHorizontal: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dialSelected: {
+    borderColor: '#A855F7',
+    backgroundColor: 'rgba(168, 85, 247, 0.05)',
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  label: {
+    color: 'rgba(238, 240, 246, 0.75)',
+    fontSize: 20,
+    fontFamily: 'JetBrainsMono_500Medium',
+    letterSpacing: -0.5,
+  },
+  labelSelected: {
+    color: '#EEF0F6',
+  },
+  selectRing: {
+    width: 18,
+    height: 18,
+    borderRadius: 99,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectRingSelected: {
+    borderColor: '#A855F7',
+  },
+  selectDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 99,
+    backgroundColor: '#A855F7',
+  },
+});
