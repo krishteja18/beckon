@@ -1,62 +1,148 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+﻿import React, { useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming } from 'react-native-reanimated';
 import { VoiceBall } from '../../src/components/VoiceBall';
 import { AmbientBackground } from '../../src/components/AmbientBackground';
+
+// Simple Vector Icons inside pure React Native Views for cross-platform compatibility
+function FlameIcon({ size = 16, color = '#FB923C' }: { size?: number; color?: string }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+      </svg>
+    </View>
+  );
+}
+
+function DropIcon({ size = 16, color = '#38BDF8' }: { size?: number; color?: string }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22a7 7 0 0 0 7-7c0-4.3-7-11-7-11S5 10.7 5 15a7 7 0 0 0 7 7z"></path>
+      </svg>
+    </View>
+  );
+}
 
 export default function Welcome() {
   const router = useRouter();
 
+  // Floating animations for components in the "Welcome Kit"
+  const floatY1 = useSharedValue(0);
+  const floatY2 = useSharedValue(0);
+  const floatY3 = useSharedValue(0);
+
+  useEffect(() => {
+    floatY1.value = withRepeat(
+      withTiming(8, { duration: 2600 }),
+      -1,
+      true
+    );
+    floatY2.value = withRepeat(
+      withTiming(-8, { duration: 3200 }),
+      -1,
+      true
+    );
+    floatY3.value = withRepeat(
+      withTiming(6, { duration: 2200 }),
+      -1,
+      true
+    );
+  }, []);
+
+  const leftCardStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: floatY1.value },
+        { rotate: '-10deg' }
+      ]
+    };
+  });
+
+  const rightCardStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: floatY2.value },
+        { rotate: '10deg' }
+      ]
+    };
+  });
+
+  const centerOrbStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: floatY3.value }
+      ]
+    };
+  });
+
   return (
     <AmbientBackground>
       <SafeAreaView style={styles.container}>
-        <View style={styles.topSpace} />
+        
+        {/* Sleek Header Spacer */}
+        <View style={styles.headerSpacer} />
 
-        {/* Floating Glowing Gemini Orb Hero Section */}
-        <View className="items-center gap-12 my-auto">
-          <View style={styles.orbWrapper}>
-            <VoiceBall state="speaking" size={180} />
+        {/* Floating Welcome Kit Showcase Graphic */}
+        <View style={styles.centerSection}>
+          <View style={styles.kitContainer}>
+            
+            {/* Background Layer 1: Left Calorie Float Card */}
+            <Animated.View style={[styles.miniCard, styles.leftCard, leftCardStyle]}>
+              <View style={styles.iconCircleOrange}>
+                <FlameIcon size={16} color="#FB923C" />
+              </View>
+              <Text style={styles.miniCardTitle}>Energy</Text>
+              <Text style={styles.miniCardVal}>450 cal</Text>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { backgroundColor: '#FB923C', width: '40%' }]} />
+              </View>
+            </Animated.View>
+
+            {/* Background Layer 2: Right Hydration Float Card */}
+            <Animated.View style={[styles.miniCard, styles.rightCard, rightCardStyle]}>
+              <View style={styles.iconCircleBlue}>
+                <DropIcon size={16} color="#38BDF8" />
+              </View>
+              <Text style={styles.miniCardTitle}>Hydration</Text>
+              <Text style={styles.miniCardVal}>680 ml</Text>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { backgroundColor: '#38BDF8', width: '60%' }]} />
+              </View>
+            </Animated.View>
+
+            {/* Foreground Layer 3: Spectacular Reactor Orb in center */}
+            <Animated.View style={[styles.orbWrapper, centerOrbStyle]}>
+              <VoiceBall state="speaking" size={200} />
+            </Animated.View>
+
           </View>
 
-          <View className="items-center gap-3 px-6">
-            <Text
-              style={{
-                color: '#EEF0F6',
-                fontSize: 36,
-                fontWeight: '200',
-                letterSpacing: -1.6,
-                textAlign: 'center',
-                fontFamily: 'Inter_300Light',
-                lineHeight: 44,
-              }}
-            >
-              A coach that{'\n'}
-              <Text style={{ color: '#38BDF8', fontWeight: '400' }}>actually shows up.</Text>
+          {/* Typography Presentation */}
+          <View className="items-center gap-2 px-6 mt-12">
+            <Text style={styles.eyebrow}>YOUR DAILY AI COACH</Text>
+            <Text style={styles.title}>
+              Welcome to {'\n'}
+              <Text style={styles.highlightText}>Showup</Text>
             </Text>
-            <Text
-              className="mt-3 text-center"
-              style={{
-                fontSize: 14.5,
-                lineHeight: 22,
-                fontFamily: 'Inter_400Regular',
-                color: 'rgba(170, 178, 200, 0.75)',
-                paddingHorizontal: 16,
-              }}
-            >
-              Voice-first goal coaching that calls you at your scheduled times.
-              No streak shame, no judgment.
+            <Text style={styles.subtitle}>
+              Voice-first accountability that calls you on your exact schedule.
+              No judgment. Only support and execution.
             </Text>
           </View>
         </View>
 
         {/* Buttons / CTAs */}
-        <View className="px-6 pb-8 gap-3">
+        <View className="px-6 pb-12 gap-3">
           <Pressable
             onPress={() => router.push('/(onboarding)/auth')}
             style={styles.primaryButton}
           >
-            <Text style={{ color: '#03050C', fontSize: 15, fontFamily: 'Inter_500Medium', letterSpacing: -0.2 }}>
-              Get started
+            <Text style={styles.primaryButtonText}>
+              GET STARTED
             </Text>
           </Pressable>
           
@@ -64,14 +150,8 @@ export default function Welcome() {
             onPress={() => router.push('/(onboarding)/auth')}
             className="items-center py-3"
           >
-            <Text
-              style={{
-                fontFamily: 'Inter_400Regular',
-                fontSize: 14,
-                color: 'rgba(170, 178, 200, 0.55)',
-              }}
-            >
-              I already have an account
+            <Text style={styles.secondaryButtonText}>
+              ALREADY HAVE AN ACCOUNT? SIGN IN
             </Text>
           </Pressable>
         </View>
@@ -85,25 +165,144 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  topSpace: {
-    height: 40,
+  headerSpacer: {
+    height: 30,
   },
-  orbWrapper: {
-    shadowColor: '#a855f7',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  primaryButton: {
-    backgroundColor: '#38BDF8',
-    borderRadius: 16,
-    paddingVertical: 16,
+  centerSection: {
     alignItems: 'center',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    justifyContent: 'center',
+    marginVertical: 'auto',
+    width: '100%',
+  },
+  kitContainer: {
+    position: 'relative',
+    width: 280,
+    height: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniCard: {
+    position: 'absolute',
+    width: 105,
+    height: 105,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    padding: 10,
+    justifyContent: 'space-between',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
     elevation: 4,
   },
+  leftCard: {
+    left: 0,
+    top: 50,
+    zIndex: 2,
+  },
+  rightCard: {
+    right: 0,
+    top: 50,
+    zIndex: 2,
+  },
+  iconCircleOrange: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(251, 146, 60, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconCircleBlue: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniCardTitle: {
+    fontSize: 10,
+    color: '#6B7280',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  miniCardVal: {
+    fontSize: 13,
+    color: '#1E1B4B',
+    fontFamily: 'Inter_600SemiBold',
+    marginTop: -2,
+  },
+  progressBarBg: {
+    height: 4,
+    width: '100%',
+    borderRadius: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  orbWrapper: {
+    zIndex: 10,
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.08,
+    shadowRadius: 36,
+    elevation: 12,
+  },
+  eyebrow: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    color: '#6C5DD3',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  title: {
+    color: '#1E1B4B',
+    fontSize: 34,
+    letterSpacing: -1.2,
+    textAlign: 'center',
+    fontFamily: 'Inter_600SemiBold',
+    lineHeight: 40,
+  },
+  highlightText: {
+    color: '#6C5DD3',
+  },
+  subtitle: {
+    fontSize: 14.5,
+    lineHeight: 21,
+    fontFamily: 'Inter_400Regular',
+    color: '#6B7280',
+    paddingHorizontal: 24,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  primaryButton: {
+    backgroundColor: '#6C5DD3',
+    borderRadius: 28,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14.5,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 0.5,
+  },
+  secondaryButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12.5,
+    color: '#6C5DD3',
+    letterSpacing: 0.6,
+  },
 });
+

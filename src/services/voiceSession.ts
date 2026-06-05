@@ -2,27 +2,44 @@
  * voiceSession — client-side Gemini Live session manager.
  *
  * Flow:
- *   1. POST voice-session-token edge function → get API key + model
- *   2. Open WebSocket directly to Gemini Live
- *   3. Send 16 kHz PCM mic frames up; receive 24 kHz PCM audio frames down
- *   4. Surface state transitions to the caller via callbacks
- *   5. Tear down cleanly on end-of-call / network drop
+ *   1. POST voice-session-token edge function → get ephemeral token + ws endpoint
+ *   2. Open WebSocket directly to Gemini Live (v1alpha) using the token
+ *   3. Send setup with: model + system instruction + tool declarations
+ *   4. Stream 16 kHz PCM mic frames up; receive 24 kHz PCM audio frames down
+ *   5. Receive functionCall messages → caller dispatches → we send functionResponse back
+ *   6. Surface state transitions and tool events to the caller via callbacks
+ *   7. Tear down cleanly on end-of-call / network drop
  */
 
 import { supabase } from './supabase';
-import { buildShowupPrompt } from './prompts';
+import { buildShowupPrompt, CallType } from './prompts';
+import { VOICE_TOOL_DECLARATIONS, dispatchToolCall, ToolResult } from './voiceTools';
+import { fetchGoalsWithSchedules } from './goals';
+import { fetchRoutines } from './routines';
+import { composeEntitySnapshot } from './prompts';
 
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking';
-export type CallType = 'morning' | 'midday' | 'evening' | 'wall' | 'retro';
+export type { CallType };
 
 export interface SessionConfig {
   callType: CallType;
   goalTitle?: string;
   goalId?: string;
+  routineTitle?: string;
   intensity?: 'gentle' | 'firm' | 'drill';
   framework?: 'atomic_habits' | 'ikigai' | 'deep_work';
   userName?: string;
   languageCode?: string;
+  /** If true, declares CRUD tools + injects entity snapshot. Default true. */
+  enableTools?: boolean;
+  /** If true, sends responseModalities=['TEXT'] for web-side testing without audio. */
+  textMode?: boolean;
+}
+
+export interface ToolCallEvent {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
 }
 
 export interface VoiceSessionCallbacks {
@@ -31,15 +48,16 @@ export interface VoiceSessionCallbacks {
   onTranscript?: (text: string, role: 'user' | 'model') => void;
   onInterrupted?: () => void;
   onTurnComplete?: () => void;
+  onToolCall?: (event: ToolCallEvent, result: ToolResult) => void;
   onError?: (err: Error) => void;
   onClose?: (reason: string) => void;
 }
 
 interface TokenResponse {
-  apiKey: string;
-  model: string;
-  expiresAt: string;
-  ttlSeconds: number;
+  token: string;       // "tokens/<...>"
+  model: string;       // "models/gemini-3.1-flash-live-preview"
+  expireTime: string;
+  wsEndpoint: string;
 }
 
 const TOKEN_URL = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/voice-session-token`;
@@ -58,7 +76,7 @@ export class VoiceSession {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
 
-    // 1. Get ephemeral token
+    // 1. Mint ephemeral token (v1alpha)
     const tokenRes = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: {
@@ -74,67 +92,83 @@ export class VoiceSession {
 
     const token = (await tokenRes.json()) as TokenResponse;
 
-    // 2. Build system prompt
+    // 2. Compose system instruction (coaching + tools + entity snapshot)
+    const enableTools = config.enableTools !== false;
+    let entitySnapshot: string | undefined;
+    if (enableTools) {
+      try {
+        const [goals, routines] = await Promise.all([
+          fetchGoalsWithSchedules(),
+          fetchRoutines(),
+        ]);
+        entitySnapshot = composeEntitySnapshot({
+          goals: goals.map(g => ({
+            id: g.id,
+            title: g.title,
+            framework: g.framework,
+            schedules: g.schedules.filter(s => s.active).map(s => ({
+              scheduleId: s.id,
+              time: s.scheduled_time as string,
+              days: s.scheduled_days,
+            })),
+          })),
+          routines: routines.map(r => ({
+            id: r.id,
+            title: r.title,
+            time: r.scheduled_time,
+            days: r.scheduled_days,
+          })),
+        });
+      } catch (e) {
+        console.warn('[VoiceSession] snapshot fetch failed', e);
+      }
+    }
+
     const systemPrompt = buildShowupPrompt({
       callType: config.callType,
       intensity: config.intensity ?? 'firm',
       userName: config.userName ?? 'there',
+      goalTitle: config.goalTitle,
+      routineTitle: config.routineTitle,
+      framework: config.framework,
+      withTools: enableTools,
+      entitySnapshot,
     });
 
-    // 3. Open WebSocket to Gemini Live
-    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${token.apiKey}`;
+    // 3. Open WebSocket to Gemini Live v1alpha with ephemeral token
+    const wsUrl = `${token.wsEndpoint}?access_token=${encodeURIComponent(token.token)}`;
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
       this.isOpen = true;
-      this.ws!.send(JSON.stringify({
-        setup: {
-          model: token.model,
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              languageCode: config.languageCode ?? 'en-US',
-            },
-          },
-          systemInstruction: {
-            parts: [{ text: systemPrompt }],
+      const tools: any[] = [];
+      if (enableTools) {
+        tools.push({ functionDeclarations: VOICE_TOOL_DECLARATIONS });
+        tools.push({ googleSearch: {} });
+      }
+
+      const setup: any = {
+        model: token.model,
+        generationConfig: {
+          responseModalities: [config.textMode ? 'TEXT' : 'AUDIO'],
+          speechConfig: {
+            languageCode: config.languageCode ?? 'en-US',
           },
         },
-      }));
+        systemInstruction: {
+          parts: [{ text: systemPrompt }],
+        },
+      };
+      if (tools.length > 0) setup.tools = tools;
+
+      this.ws!.send(JSON.stringify({ setup }));
       this.callbacks.onStateChange?.('listening');
     };
 
     this.ws.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data as string);
-        const content = msg.serverContent;
-        if (!content) return;
-
-        const parts = content.modelTurn?.parts ?? [];
-        let hasAudio = false;
-
-        for (const part of parts) {
-          if (part.inlineData?.data && part.inlineData.mimeType?.startsWith('audio/')) {
-            hasAudio = true;
-            this.callbacks.onAudioOut?.(part.inlineData.data, part.inlineData.mimeType);
-          }
-          if (part.text) {
-            this.callbacks.onTranscript?.(part.text, 'model');
-          }
-        }
-
-        if (hasAudio) this.callbacks.onStateChange?.('speaking');
-        if (content.interrupted) {
-          this.callbacks.onStateChange?.('listening');
-          this.callbacks.onInterrupted?.();
-        }
-        if (content.turnComplete) {
-          this.callbacks.onStateChange?.('listening');
-          this.callbacks.onTurnComplete?.();
-        }
-      } catch (e) {
-        console.warn('[VoiceSession] parse error', e);
-      }
+      this.handleMessage(evt.data as string).catch(e => {
+        console.warn('[VoiceSession] handleMessage error', e);
+      });
     };
 
     this.ws.onerror = () => {
@@ -148,7 +182,75 @@ export class VoiceSession {
     };
   }
 
-  sendAudio(pcmBase64: string) {
+  private async handleMessage(raw: string): Promise<void> {
+    let msg: any;
+    try { msg = JSON.parse(raw); } catch { return; }
+
+    // ── Tool calls (model wants to execute a CRUD op) ──
+    if (msg.toolCall?.functionCalls?.length) {
+      for (const fc of msg.toolCall.functionCalls) {
+        const event: ToolCallEvent = {
+          id: fc.id ?? `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          name: fc.name,
+          args: (fc.args ?? {}) as Record<string, unknown>,
+        };
+        let result: ToolResult;
+        try {
+          result = await dispatchToolCall(event.name, event.args);
+        } catch (e: any) {
+          result = { ok: false, message: e?.message ?? String(e) };
+        }
+        this.sendToolResponse(event.id, event.name, result);
+        this.callbacks.onToolCall?.(event, result);
+      }
+      return;
+    }
+
+    // ── Tool cancellation (model decided not to use the call) ──
+    if (msg.toolCallCancellation) {
+      return;
+    }
+
+    // ── Standard model content (audio + text) ──
+    const content = msg.serverContent;
+    if (!content) return;
+
+    const parts = content.modelTurn?.parts ?? [];
+    let hasAudio = false;
+
+    for (const part of parts) {
+      if (part.inlineData?.data && part.inlineData.mimeType?.startsWith('audio/')) {
+        hasAudio = true;
+        this.callbacks.onAudioOut?.(part.inlineData.data, part.inlineData.mimeType);
+      }
+      if (part.text) {
+        this.callbacks.onTranscript?.(part.text, 'model');
+      }
+    }
+
+    if (hasAudio) this.callbacks.onStateChange?.('speaking');
+    if (content.interrupted) {
+      this.callbacks.onStateChange?.('listening');
+      this.callbacks.onInterrupted?.();
+    }
+    if (content.turnComplete) {
+      this.callbacks.onStateChange?.('listening');
+      this.callbacks.onTurnComplete?.();
+    }
+  }
+
+  private sendToolResponse(id: string, name: string, result: ToolResult): void {
+    if (!this.isOpen || !this.ws) return;
+    this.ws.send(JSON.stringify({
+      toolResponse: {
+        functionResponses: [
+          { id, name, response: result },
+        ],
+      },
+    }));
+  }
+
+  sendAudio(pcmBase64: string): void {
     if (!this.isOpen || !this.ws) return;
     this.ws.send(JSON.stringify({
       realtimeInput: {
@@ -157,7 +259,7 @@ export class VoiceSession {
     }));
   }
 
-  sendText(text: string) {
+  sendText(text: string): void {
     if (!this.isOpen || !this.ws) return;
     this.ws.send(JSON.stringify({
       clientContent: {
@@ -167,7 +269,7 @@ export class VoiceSession {
     }));
   }
 
-  close() {
+  close(): void {
     try { this.ws?.close(); } catch {}
     this.ws = null;
     this.isOpen = false;

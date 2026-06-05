@@ -8,6 +8,62 @@ import { OnboardingState } from '../store/onboarding';
 import { syncAlarms } from './alarmScheduler';
 
 export async function commitOnboarding(state: OnboardingState): Promise<void> {
+  const isBypass = typeof window !== 'undefined' && window.localStorage?.getItem('bypass_auth') === 'true';
+  if (isBypass) {
+    // 1. Save profile information locally
+    localStorage.setItem('mock_profile_name', state.name.trim());
+    
+    // 2. Save goals and schedules locally
+    const goals: any[] = [];
+    const schedules: any[] = [];
+    
+    const allDays = [0, 1, 2, 3, 4, 5, 6];
+    for (let i = 0; i < state.goals.length; i++) {
+      const g = state.goals[i];
+      if (!g.title.trim()) continue;
+
+      const goalId = 'mock-goal-' + Math.random().toString(36).substr(2, 9);
+      goals.push({
+        id: goalId,
+        user_id: 'mock-user',
+        title: g.title.trim(),
+        framework: state.framework,
+        status: 'active',
+        created_at: new Date().toISOString(),
+      });
+
+      const time = g.scheduledTime || state.scheduleTimes[i % Math.max(1, state.scheduleTimes.length)] || '08:00';
+      if (time) {
+        schedules.push({
+          id: 'mock-sched-' + Math.random().toString(36).substr(2, 9),
+          goal_id: goalId,
+          user_id: 'mock-user',
+          scheduled_time: time + ':00',
+          scheduled_days: allDays,
+          active: true,
+        });
+      }
+    }
+    
+    localStorage.setItem('mock_goals', JSON.stringify(goals));
+    localStorage.setItem('mock_schedules', JSON.stringify(schedules));
+
+    // Save routines (optional, defaults to every day)
+    const routines = (state.routines ?? []).filter(r => r.title.trim()).map(r => ({
+      id: 'mock-routine-' + Math.random().toString(36).substr(2, 9),
+      user_id: 'mock-user',
+      title: r.title.trim(),
+      scheduled_time: r.time + ':00',
+      scheduled_days: allDays,
+      active: true,
+      created_at: new Date().toISOString(),
+    }));
+    if (routines.length > 0) {
+      localStorage.setItem('mock_routines', JSON.stringify(routines));
+    }
+    return;
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
   if (!state.intensity || !state.framework) {
@@ -50,9 +106,8 @@ export async function commitOnboarding(state: OnboardingState): Promise<void> {
 
     if (gErr || !goal) throw gErr ?? new Error('Failed to create goal');
 
-    // Attach the first available time to this goal as its default schedule
-    // (Per-goal time assignment becomes a separate UX flow later.)
-    const time = state.scheduleTimes[i % Math.max(1, state.scheduleTimes.length)];
+    // Attach the personalized time to this goal or fallback to the boundaries
+    const time = g.scheduledTime || state.scheduleTimes[i % Math.max(1, state.scheduleTimes.length)] || '08:00';
     if (time) {
       const { error: sErr } = await supabase
         .from('goal_schedules')
@@ -65,6 +120,21 @@ export async function commitOnboarding(state: OnboardingState): Promise<void> {
         });
       if (sErr) throw sErr;
     }
+  }
+
+  // 2b. Create routines (optional — defaults to every day)
+  for (const r of state.routines ?? []) {
+    if (!r.title.trim()) continue;
+    const { error: rErr } = await supabase
+      .from('routines')
+      .insert({
+        user_id: user.id,
+        title: r.title.trim(),
+        scheduled_time: r.time + ':00',
+        scheduled_days: allDays,
+        active: true,
+      });
+    if (rErr) throw rErr;
   }
 
   // 3. Mark onboarding complete (gate flips next time the user opens the app)

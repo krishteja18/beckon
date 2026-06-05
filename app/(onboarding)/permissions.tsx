@@ -1,50 +1,125 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+﻿import React from 'react';
+import { View, Text, Pressable, StyleSheet, Linking, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
+import { ShowupAlarm } from '../../modules/showup-alarm/src';
 
-const ITEMS = [
+interface PermissionItem {
+  icon: string;
+  title: string;
+  sub: string;
+  color: string;
+  bg: string;
+  action: string;
+}
+
+const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
   { 
-    icon: '🎙', 
+    icon: 'ðŸŽ™', 
     title: 'Microphone', 
-    sub: 'So the coach can hear you.', 
-    color: '#38BDF8', 
-    bg: 'rgba(56, 189, 248, 0.06)' 
+    sub: 'Allows you to speak and talk with your coach.', 
+    color: '#38BDF8', // Cyan pastels
+    bg: 'rgba(56, 189, 248, 0.06)',
+    action: 'mic',
   },
   { 
-    icon: '⏰', 
+    icon: 'â°', 
     title: 'Exact alarms', 
-    sub: 'So we can call you at scheduled times.', 
-    color: '#A855F7', 
-    bg: 'rgba(168, 85, 247, 0.06)' 
+    sub: 'Ensures your daily calls arrive precisely on time.', 
+    color: '#6C5DD3', // Brand purple
+    bg: 'rgba(108, 93, 211, 0.06)',
+    action: 'alarms',
   },
   { 
-    icon: '🔔', 
+    icon: 'ðŸ””', 
     title: 'Notifications', 
-    sub: 'For the call to break through DND.', 
-    color: '#EC4899', 
-    bg: 'rgba(236, 72, 153, 0.06)' 
+    sub: 'Lets you know when your coach is calling.', 
+    color: '#38BDF8', 
+    bg: 'rgba(56, 189, 248, 0.06)',
+    action: 'notifications',
   },
   { 
-    icon: '🔋', 
+    icon: 'ðŸ”‹', 
     title: 'Battery exempt', 
-    sub: 'So the OS doesn\'t kill us mid-call.', 
-    color: '#F59E0B', 
-    bg: 'rgba(245, 158, 11, 0.06)' 
+    sub: 'Keeps the call connected when your screen goes dark.', 
+    color: '#6C5DD3', 
+    bg: 'rgba(108, 93, 211, 0.06)',
+    action: 'battery',
+  },
+] : [
+  { 
+    icon: 'ðŸŽ™', 
+    title: 'Microphone', 
+    sub: 'Allows you to speak and talk with your coach.', 
+    color: '#38BDF8',
+    bg: 'rgba(56, 189, 248, 0.06)',
+    action: 'mic'
+  },
+  { 
+    icon: 'ðŸ“ž', 
+    title: 'CallKit & PushKit', 
+    sub: 'Wakes up your phone for incoming calls even when locked.', 
+    color: '#6C5DD3',
+    bg: 'rgba(108, 93, 211, 0.06)',
+    action: 'callkit'
+  },
+  { 
+    icon: 'ðŸ””', 
+    title: 'Notifications', 
+    sub: 'Lets you know when your coach is calling.', 
+    color: '#38BDF8', 
+    bg: 'rgba(56, 189, 248, 0.06)',
+    action: 'notifications'
+  },
+  { 
+    icon: 'ðŸ—£', 
+    title: 'Siri Call Announce', 
+    sub: 'Siri will read notifications and let you say "Answer" hands-free.', 
+    color: '#6C5DD3', 
+    bg: 'rgba(108, 93, 211, 0.06)',
+    action: 'siri'
   },
 ];
 
 export default function PermissionsScreen() {
   const router = useRouter();
 
+  const handleGrant = async (action: string) => {
+    if (action === 'mic') {
+      Alert.alert('Microphone Access', 'Please authorize microphone access in your device settings.');
+    } else if (action === 'callkit') {
+      try {
+        await ShowupAlarm.requestCallKitPermissions();
+        Alert.alert('CallKit Registered', 'PushKit VoIP registration triggered successfully!');
+      } catch (e: any) {
+        console.warn('CallKit registration failed', e);
+        Alert.alert('Entitlement Required', 'iOS CallKit & PushKit requires a valid developer provisioning profile.');
+      }
+    } else if (action === 'notifications') {
+      Alert.alert('Notifications Access', 'Please authorize notifications inside your device settings.');
+    } else if (action === 'siri') {
+      Alert.alert(
+        'Siri Voice Answers Checklist',
+        'For zero-tap voice answering, configure Siri Settings:\n\n1. Allow Siri When Locked -> ON\n2. Announce Calls -> Always',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() }
+        ]
+      );
+    } else {
+      Alert.alert('Permission', 'Requested permission setting.');
+    }
+  };
+
   return (
     <OnboardingFrame
-      step={8}
-      totalSteps={9}
-      eyebrow="Step 8"
-      title="One last setup."
-      subtitle="Showup needs these to ring you on time. Tap each one — your phone will ask."
+      step={7}
+      totalSteps={8}
+      eyebrow="Step 7"
+      title="Enable daily calls"
+      subtitle="Please enable these permissions so your AI coach can reach you exactly on time."
       primary={{
-        label: 'Continue',
+        label: 'CONTINUE',
         onPress: () => router.push('/(onboarding)/test-call'),
       }}
     >
@@ -54,11 +129,11 @@ export default function PermissionsScreen() {
             key={it.title}
             style={styles.card}
           >
-            {/* Custom glowing circular icon container */}
+            {/* Access badge icon container */}
             <View 
               style={[
                 styles.iconContainer, 
-                { borderColor: 'rgba(255, 255, 255, 0.06)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }
+                { borderColor: 'rgba(108, 93, 211, 0.08)', backgroundColor: '#F4F6FB' }
               ]}
             >
               <Text style={styles.icon}>{it.icon}</Text>
@@ -73,9 +148,9 @@ export default function PermissionsScreen() {
               </Text>
             </View>
 
-            {/* Glowing neon chip action */}
+            {/* Glowing neon grant button */}
             <Pressable
-              onPress={() => {/* TODO: trigger actual permission request */}}
+              onPress={() => handleGrant(it.action)}
               style={({ pressed }) => [
                 styles.grantBtn,
                 { borderColor: it.color, backgroundColor: it.bg },
@@ -83,7 +158,7 @@ export default function PermissionsScreen() {
               ]}
             >
               <Text style={[styles.grantText, { color: it.color }]}>
-                Grant
+                GRANT
               </Text>
             </Pressable>
           </View>
@@ -95,56 +170,55 @@ export default function PermissionsScreen() {
 
 const styles = StyleSheet.create({
   list: {
-    gap: 12,
+    gap: 10,
     marginTop: 4,
   },
   card: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    backgroundColor: 'rgba(255, 255, 255, 0.015)',
-    padding: 14,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF', // Pure White card backing!
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   icon: {
-    fontSize: 20,
+    fontSize: 18,
   },
   textContainer: {
     flex: 1,
   },
   title: {
-    color: '#EEF0F6',
+    color: '#1E1B4B', // Slate dark text
     fontSize: 14.5,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
   },
   subtitle: {
-    color: 'rgba(170, 178, 200, 0.55)',
-    fontSize: 12,
+    color: '#6B7280', // Slate gray subtitle
+    fontSize: 11.5,
     fontFamily: 'Inter_400Regular',
     lineHeight: 16,
     marginTop: 2,
   },
   grantBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 99,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20, // capsule shape
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   grantText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: 'Inter_600SemiBold',
-    letterSpacing: -0.1,
   },
 });

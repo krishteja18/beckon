@@ -5,7 +5,7 @@
 
 select cron.schedule(
   'scheduled-call-trigger',
-  '*/5 * * * *',
+  '* * * * *',
   $$
     select net.http_post(
       url := 'https://otamjpxbfesbxzyeoaec.supabase.co/functions/v1/scheduled-call-trigger',

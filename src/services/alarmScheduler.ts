@@ -15,6 +15,7 @@
 
 import { Platform } from 'react-native';
 import { fetchGoalsWithSchedules } from './goals';
+import { fetchRoutines } from './routines';
 import { fetchProfile } from './profile';
 import { buildShowupPrompt, CallType, Intensity } from './prompts';
 import type { Database } from './database.types';
@@ -66,16 +67,18 @@ function nextFireMs(scheduledTime: string, scheduledDays: number[]): number {
 export async function syncAlarms(): Promise<void> {
   if (!ShowupAlarm) return;
 
-  const [goals, profile] = await Promise.all([
+  const [goals, routines, profile] = await Promise.all([
     fetchGoalsWithSchedules(),
+    fetchRoutines(),
     fetchProfile(),
   ]);
   if (!profile) return;
 
   const intensity = (profile.intensity ?? 'firm') as Intensity;
   const userName  = profile.display_name ?? 'there';
+  const defaultFramework = (profile.default_framework as Framework | null) ?? undefined;
 
-  const alarms = goals.flatMap(goal =>
+  const goalAlarms = goals.flatMap(goal =>
     goal.schedules.filter(s => s.active).map(s => {
       const fireAtMs = nextFireMs(s.scheduled_time as string, s.scheduled_days);
       const hour = new Date(fireAtMs).getHours();
@@ -97,9 +100,30 @@ export async function syncAlarms(): Promise<void> {
     })
   );
 
+  // Routines: short reminder calls. Use profile's default framework + intensity.
+  const routineAlarms = routines
+    .filter(r => r.active)
+    .map(r => {
+      const fireAtMs = nextFireMs(r.scheduled_time, r.scheduled_days);
+      return {
+        alarmId: r.id,
+        fireAtMs,
+        goalId: r.id,            // reuse field — native side just stores it
+        goalTitle: r.title,
+        callType: 'routine' as CallType,
+        promptBlueprint: buildShowupPrompt({
+          callType: 'routine',
+          intensity,
+          userName,
+          routineTitle: r.title,
+          framework: defaultFramework,
+        }),
+      };
+    });
+
   // Cancel everything first, then schedule fresh. Native module dedupes by id.
   await ShowupAlarm.cancelAllAlarms();
-  await ShowupAlarm.rearmAllAlarms(alarms);
+  await ShowupAlarm.rearmAllAlarms([...goalAlarms, ...routineAlarms]);
 }
 
 /** Cancel a single alarm by schedule_id (used when archiving a goal). */

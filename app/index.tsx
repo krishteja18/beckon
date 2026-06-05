@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { Redirect } from 'expo-router';
 import { supabase } from '../src/services/supabase';
 
@@ -13,6 +13,24 @@ export default function Index() {
 
     const decide = async () => {
       try {
+        // Auto-close OAuth popup window on Web once session is established
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.name === 'google-signin') {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            window.close();
+            return;
+          }
+          // Keep the popup in loading state while Supabase processes the redirect hash.
+          // This prevents unmounting and redirecting, allowing onAuthStateChange to fire.
+          return;
+        }
+
+        // Local developer bypass for Web client
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && localStorage.getItem('bypass_auth') === 'true') {
+          setState('app');
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (cancelled) return;
 
@@ -51,7 +69,7 @@ export default function Index() {
   if (state === 'loading') {
     return (
       <View style={{ flex: 1, backgroundColor: '#020409', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#38BDF8" />
+        <ActivityIndicator color="#6C5DD3" />
       </View>
     );
   }

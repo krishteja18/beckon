@@ -5,29 +5,51 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg:        '#03050C', // deep space black/blue background
-        'bg-2':    '#070A15', // secondary layered deep background
+        // Momotaro Premium Light & Lavender palette
+        bg:                '#F4F6FB',
+        'bg-2':            '#FFFFFF',
+        'brand-purple':    '#6C5DD3',
+        'brand-lavender':  '#ECEFFA',
+        
+        // Text and UI shades
+        'text-primary':    '#1E1B4B',
+        'text-secondary':  '#6B7280',
+        'text-tertiary':   '#8A94A6',
+        
+        // Pastels for fitness analytics
+        'accent-cyan':     '#38BDF8',
+        'accent-orange':   '#FB923C',
+        'accent-green':    '#10B981',
+        'accent-indigo':   '#4F46E5',
+
+        // Compat mappings to keep old code building perfectly
+        'holo-cyan':       '#38BDF8',
+        'laser-blue':      '#6C5DD3',
+        'cyber-pink':      '#FB923C',
+        'electric-purple': '#4F46E5',
+        'matrix-green':    '#10B981',
+        'solar-amber':     '#FB923C',
+
         blue:      '#38BDF8',
-        'blue-2':  '#0EA5E9',
-        cyan:      '#06B6D4',
-        indigo:    '#4F46E5',
-        'gemini-blue': '#4285F4',
-        'gemini-purple': '#A855F7',
-        'gemini-pink': '#EC4899',
-        'gemini-amber': '#F59E0B',
-        'text-1':  'rgba(238, 240, 246, 0.94)',
-        'text-2':  'rgba(170, 178, 200, 0.55)',
-        'text-3':  'rgba(150, 160, 185, 0.28)',
-        line:      'rgba(255, 255, 255, 0.06)',
-        'glass-border': 'rgba(255, 255, 255, 0.08)',
+        'blue-2':  '#6C5DD3',
+        cyan:      '#38BDF8',
+        indigo:    '#6C5DD3',
+        'gemini-blue': '#38BDF8',
+        'gemini-purple': '#6C5DD3',
+        'gemini-pink': '#FB923C',
+        'gemini-amber': '#FB923C',
+        
+        line:      'rgba(108, 93, 211, 0.08)',
+        'glass-border': 'rgba(108, 93, 211, 0.04)',
         success:   '#10B981',
-        warn:      '#F59E0B',
+        warn:      '#FB923C',
       },
       fontFamily: {
-        sans: ['Inter'],
+        sans: ['Outfit', 'Inter'],
         mono: ['JetBrainsMono'],
       },
     },
   },
   plugins: [],
 };
+

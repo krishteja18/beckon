@@ -370,6 +370,36 @@ export type Database = {
         }
         Relationships: []
       }
+      routines: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          scheduled_days: number[]
+          scheduled_time: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          scheduled_days?: number[]
+          scheduled_time: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          scheduled_days?: number[]
+          scheduled_time?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       schedule_overrides: {
         Row: {
           created_at: string
@@ -504,7 +534,7 @@ export type Database = {
       }
     }
     Enums: {
-      call_type: "morning" | "midday" | "evening" | "wall" | "retro"
+      call_type: "morning" | "midday" | "evening" | "wall" | "retro" | "routine"
       framework_key: "atomic_habits" | "ikigai" | "deep_work"
       goal_status: "active" | "paused" | "archived" | "completed"
       integration_kind: "google_calendar" | "notion" | "gmail"
@@ -646,7 +676,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      call_type: ["morning", "midday", "evening", "wall", "retro"],
+      call_type: ["morning", "midday", "evening", "wall", "retro", "routine"],
       framework_key: ["atomic_habits", "ikigai", "deep_work"],
       goal_status: ["active", "paused", "archived", "completed"],
       integration_kind: ["google_calendar", "notion", "gmail"],

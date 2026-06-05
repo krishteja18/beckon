@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { TextInput, View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
@@ -11,7 +11,7 @@ export default function Name() {
 
   const handleContinue = () => {
     onboarding.set({ name: name.trim() });
-    router.push('/(onboarding)/intensity');
+    router.push('/(onboarding)/coaching');
   };
 
   const isNameFilled = name.trim().length > 0;
@@ -19,10 +19,10 @@ export default function Name() {
   return (
     <OnboardingFrame
       step={2}
-      totalSteps={9}
+      totalSteps={8}
       eyebrow="Step 2"
       title="What should your coach call you?"
-      subtitle="First name is fine — this is what you'll hear spoken on every call."
+      subtitle="First name is fine â€” this is what you'll hear spoken on every call."
       primary={{
         label: 'Continue',
         onPress: handleContinue,
@@ -30,33 +30,27 @@ export default function Name() {
       }}
     >
       <View style={styles.container}>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="Your first name"
-          placeholderTextColor="rgba(170,178,200,0.22)"
-          autoFocus
-          autoCapitalize="words"
-          autoComplete="name"
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          style={[
-            styles.textInput,
-            isNameFilled && styles.textInputFilled,
-            focused && styles.textInputFocused,
-          ]}
-        />
+        <View style={styles.inputWrapper}>
+          <Text style={styles.techLabel}>YOUR FIRST NAME</Text>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Your first name"
+            placeholderTextColor="#9CA3AF"
+            autoFocus
+            autoCapitalize="words"
+            autoComplete="name"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            style={[
+              styles.textInput,
+              focused && styles.textInputFocused,
+            ]}
+          />
+        </View>
         
-        <Text
-          style={{
-            fontFamily: 'Inter_400Regular',
-            fontSize: 12,
-            color: 'rgba(150, 160, 185, 0.45)',
-            marginTop: 18,
-            letterSpacing: 0.2,
-          }}
-        >
-          You can change this anytime in settings.
+        <Text style={styles.subtext}>
+          YOUR NAME IS STORED SECURELY & CAN BE CHANGED ANYTIME
         </Text>
       </View>
     </OnboardingFrame>
@@ -67,22 +61,36 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 16,
   },
-  textInput: {
-    color: '#EEF0F6',
-    fontSize: 28,
-    paddingVertical: 14,
-    borderBottomWidth: 1.5,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-    fontFamily: 'Inter_300Light',
-    letterSpacing: -0.6,
+  inputWrapper: {
+    gap: 8,
   },
-  textInputFilled: {
-    borderBottomColor: 'rgba(56, 189, 248, 0.4)',
+  techLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    color: '#6C5DD3', // Brand purple
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  textInput: {
+    color: '#1E1B4B', // Slate dark text
+    fontSize: 15,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 28,
+    backgroundColor: '#F4F6FB',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    fontFamily: 'Inter_500Medium',
   },
   textInputFocused: {
-    borderBottomColor: '#38BDF8',
-    textShadowColor: 'rgba(255,255,255,0.08)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    borderColor: '#6C5DD3', // Brand purple focus underline
+    backgroundColor: 'rgba(108, 93, 211, 0.01)',
+  },
+  subtext: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 9.5,
+    color: '#8A94A6', // Gray subtext
+    marginTop: 20,
+    letterSpacing: 0.6,
   },
 });

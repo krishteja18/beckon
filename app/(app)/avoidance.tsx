@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -58,17 +58,17 @@ export default function Avoidance() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg">
+    <SafeAreaView style={styles.safeArea} className="flex-1 bg-bg">
       <View style={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16 }}>
         <Pressable onPress={() => router.back()}>
-          <Text style={{ color: 'rgba(56,189,248,0.8)', fontSize: 14, marginBottom: 12, fontFamily: 'Inter_400Regular' }}>
+          <Text style={styles.backLink}>
             ← Settings
           </Text>
         </Pressable>
-        <Text style={{ color: '#EEF0F6', fontSize: 28, fontFamily: 'Inter_300Light', letterSpacing: -1 }}>
+        <Text style={styles.headerText}>
           Avoidance habits
         </Text>
-        <Text style={{ color: 'rgba(170,178,200,0.42)', fontSize: 13, marginTop: 6, lineHeight: 19, fontFamily: 'Inter_400Regular' }}>
+        <Text style={styles.headerSub}>
           Things you're trying to cut out. The coach asks about these every evening — no standalone alarms.
         </Text>
       </View>
@@ -81,31 +81,22 @@ export default function Avoidance() {
             onChangeText={setNewTitle}
             onSubmitEditing={handleAdd}
             placeholder="e.g. sugar, Instagram, alcohol..."
-            placeholderTextColor="rgba(170,178,200,0.3)"
-            style={{
-              flex: 1, color: '#EEF0F6', fontSize: 15,
-              paddingHorizontal: 16, paddingVertical: 12,
-              borderRadius: 12, borderWidth: 1,
-              borderColor: 'rgba(204,218,240,0.06)',
-              backgroundColor: 'rgba(255,255,255,0.012)',
-              fontFamily: 'Inter_400Regular',
-            }}
+            placeholderTextColor="#9CA3AF"
+            style={styles.input}
           />
           <Pressable
             onPress={handleAdd}
             disabled={saving || !newTitle.trim()}
-            style={{
-              paddingHorizontal: 18, justifyContent: 'center',
-              borderRadius: 12, borderWidth: 1,
-              borderColor: newTitle.trim() ? 'rgba(56,189,248,0.3)' : 'rgba(204,218,240,0.06)',
-              backgroundColor: newTitle.trim() ? 'rgba(56,189,248,0.08)' : 'rgba(255,255,255,0.012)',
-              opacity: saving ? 0.5 : 1,
-            }}
+            style={[
+              styles.addButton,
+              newTitle.trim() ? styles.addButtonActive : styles.addButtonInactive,
+              saving && { opacity: 0.5 }
+            ]}
           >
-            <Text style={{
-              color: newTitle.trim() ? '#67E8F9' : 'rgba(170,178,200,0.5)',
-              fontSize: 14, fontFamily: 'Inter_500Medium',
-            }}>
+            <Text style={[
+              styles.addButtonText,
+              newTitle.trim() ? styles.addButtonTextActive : styles.addButtonTextInactive
+            ]}>
               Add
             </Text>
           </Pressable>
@@ -114,10 +105,10 @@ export default function Avoidance() {
 
       {/* List */}
       {loading ? (
-        <ActivityIndicator color="#38BDF8" />
+        <ActivityIndicator color="#6C5DD3" />
       ) : items.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
-          <Text style={{ color: 'rgba(150,160,185,0.4)', fontSize: 14, textAlign: 'center', lineHeight: 22, fontFamily: 'Inter_300Light' }}>
+          <Text style={styles.emptyText}>
             No avoidance habits yet.{'\n'}Type one above to start tracking.
           </Text>
         </View>
@@ -130,24 +121,18 @@ export default function Avoidance() {
             return (
               <View
                 key={item.id}
-                style={{
-                  borderRadius: 14, borderWidth: 1,
-                  borderColor: 'rgba(204,218,240,0.06)',
-                  backgroundColor: 'rgba(255,255,255,0.012)',
-                  paddingHorizontal: 16, paddingVertical: 14,
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                }}
+                style={styles.itemCard}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#EEF0F6', fontSize: 15, fontFamily: 'Inter_400Regular' }}>
+                  <Text style={styles.itemTitle}>
                     {item.title}
                   </Text>
-                  <Text style={{ color: 'rgba(150,160,185,0.4)', fontSize: 11, marginTop: 3, fontFamily: 'JetBrainsMono_400Regular' }}>
+                  <Text style={styles.itemSubtitle}>
                     {days === 0 ? 'starting today' : `${days} ${days === 1 ? 'day' : 'days'} clean`}
                   </Text>
                 </View>
                 <Pressable onPress={() => handleRemove(item)} style={{ padding: 6 }}>
-                  <Text style={{ color: 'rgba(150,160,185,0.3)', fontSize: 18 }}>×</Text>
+                  <Text style={styles.closeIcon}>×</Text>
                 </Pressable>
               </View>
             );
@@ -157,3 +142,114 @@ export default function Avoidance() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: '#F4F6FB',
+  },
+  backLink: {
+    color: '#6C5DD3',
+    fontSize: 14,
+    marginBottom: 12,
+    fontFamily: 'Inter_500Medium',
+  },
+  headerText: {
+    color: '#1E1B4B',
+    fontSize: 28,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: -0.6,
+  },
+  headerSub: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 6,
+    lineHeight: 19,
+    fontFamily: 'Inter_400Regular',
+  },
+  input: {
+    flex: 1,
+    color: '#1E1B4B',
+    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF',
+    fontFamily: 'Inter_500Medium',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  addButton: {
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  addButtonActive: {
+    borderColor: '#6C5DD3',
+    backgroundColor: '#ECEFFA',
+  },
+  addButtonInactive: {
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF',
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  addButtonTextActive: {
+    color: '#6C5DD3',
+  },
+  addButtonTextInactive: {
+    color: '#9CA3AF',
+  },
+  emptyText: {
+    color: '#6B7280',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontFamily: 'Inter_400Regular',
+  },
+  itemCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  itemTitle: {
+    color: '#1E1B4B',
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+  },
+  itemSubtitle: {
+    color: '#6B7280',
+    fontSize: 11,
+    marginTop: 3,
+    fontFamily: 'Inter_400Regular',
+  },
+  closeIcon: {
+    color: '#9CA3AF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+});
+

@@ -1,109 +1,206 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
+﻿import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
 import { onboarding } from '../../src/store/onboarding';
 
-const MAX_GOALS = 3;
+interface PresetGoal {
+  id: string;
+  title: string;
+  emoji: string;
+  activeBg: string;
+  activeShadow: string;
+}
+
+const PRESETS: PresetGoal[] = [
+  { id: 'deep-work', title: 'Deep Work', emoji: 'ðŸ§ ', activeBg: '#E0F2FE', activeShadow: 'rgba(56, 189, 248, 0.28)' },
+  { id: 'morning-routine', title: 'Morning Routine', emoji: 'ðŸŒ…', activeBg: '#FEF3C7', activeShadow: 'rgba(251, 191, 36, 0.28)' },
+  { id: 'screen-detox', title: 'Screen Detox', emoji: 'ðŸ“µ', activeBg: '#ECEFFA', activeShadow: 'rgba(108, 93, 211, 0.28)' },
+  { id: 'consistency', title: 'Consistency', emoji: 'ðŸ”¥', activeBg: '#FFEDD5', activeShadow: 'rgba(251, 146, 60, 0.28)' },
+  { id: 'sleep-hygiene', title: 'Sleep Hygiene', emoji: 'ðŸŒ™', activeBg: '#E0E7FF', activeShadow: 'rgba(129, 140, 248, 0.28)' },
+  { id: 'mindfulness', title: 'Mindfulness', emoji: 'ðŸ§˜', activeBg: '#D1FAE5', activeShadow: 'rgba(52, 211, 153, 0.28)' },
+  { id: 'fitness', title: 'Fitness', emoji: 'ðŸ‹ï¸', activeBg: '#FFE4E6', activeShadow: 'rgba(239, 68, 68, 0.28)' },
+  { id: 'beauty', title: 'Beauty', emoji: 'âœ¨', activeBg: '#FAE8FF', activeShadow: 'rgba(240, 46, 170, 0.28)' },
+  { id: 'nutrition', title: 'Nutrition & Diet', emoji: 'ðŸ¥‘', activeBg: '#ECFDF5', activeShadow: 'rgba(16, 185, 129, 0.28)' },
+];
 
 export default function GoalsScreen() {
   const router = useRouter();
-  const existing = onboarding.get().goals.map(g => g.title);
-  const [goals, setGoals] = useState<string[]>(existing.length > 0 ? existing : ['']);
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+
+  // Load existing goals from onboarding store
+  const existingGoals = onboarding.get().goals.map(g => g.title);
+  
+  // Custom goals are those selected that are not in our presets
+  const presetTitles = PRESETS.map(p => p.title);
+  const initialCustom = existingGoals.filter(t => !presetTitles.includes(t));
+
+  const [selectedTitles, setSelectedTitles] = useState<string[]>(existingGoals);
+  const [customGoals, setCustomGoals] = useState<string[]>(initialCustom);
+  
+  const [showInput, setShowInput] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const [focusedInput, setFocusedInput] = useState(false);
 
   const handleContinue = () => {
     onboarding.set({
-      goals: goals.filter(t => t.trim().length > 0).map(t => ({ title: t.trim() })),
+      goals: selectedTitles.map(t => ({ title: t })),
     });
     router.push('/(onboarding)/schedule');
   };
 
-  const updateGoal = (i: number, val: string) => {
-    const next = [...goals];
-    next[i] = val;
-    setGoals(next);
+  const toggleGoal = (title: string) => {
+    if (selectedTitles.includes(title)) {
+      setSelectedTitles(selectedTitles.filter(t => t !== title));
+    } else {
+      setSelectedTitles([...selectedTitles, title]);
+    }
   };
 
-  const addGoal = () => {
-    if (goals.length < MAX_GOALS) setGoals([...goals, '']);
+  const saveCustomGoal = () => {
+    if (customText.trim().length === 0) return;
+    const title = customText.trim();
+    
+    // Add to custom goals list if unique
+    if (!customGoals.includes(title)) {
+      setCustomGoals([...customGoals, title]);
+    }
+    
+    // Auto-select the newly added custom goal
+    if (!selectedTitles.includes(title)) {
+      setSelectedTitles([...selectedTitles, title]);
+    }
+
+    setCustomText('');
+    setShowInput(false);
   };
 
-  const removeGoal = (i: number) => {
-    setGoals(goals.filter((_, idx) => idx !== i));
+  const removeCustomGoal = (title: string) => {
+    setCustomGoals(customGoals.filter(t => t !== title));
+    setSelectedTitles(selectedTitles.filter(t => t !== title));
   };
 
-  const valid = goals.filter(g => g.trim().length > 0).length >= 1;
+  const valid = selectedTitles.length >= 1;
 
   return (
     <OnboardingFrame
-      step={5}
-      totalSteps={9}
-      eyebrow="Step 5"
-      title="What 1–3 things matter most right now?"
-      subtitle="Keep it small. Add more later — for now, just the load-bearing stuff."
+      step={4}
+      totalSteps={8}
+      eyebrow="Step 4"
+      title="Customize your goals"
+      subtitle="Select at least one wellness target. Your AI coach uses these to keep you consistent."
       primary={{
-        label: 'Continue',
+        label: 'CONTINUE',
         onPress: handleContinue,
         disabled: !valid,
       }}
     >
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View className="gap-4">
-          {goals.map((g, i) => {
-            const isFocused = focusedIndex === i;
-            const hasText = g.trim().length > 0;
+        {/* Presets 3x3 Grid */}
+        <View style={styles.grid}>
+          {PRESETS.map((preset) => {
+            const isSelected = selectedTitles.includes(preset.title);
             return (
-              <View
-                key={i}
-                style={[
-                  styles.card,
-                  isFocused && styles.cardFocused,
-                  !isFocused && hasText && styles.cardHasText,
-                ]}
-              >
-                {/* Monospace glass number badge */}
-                <View style={styles.numberBadge}>
-                  <Text style={styles.numberBadgeText}>
-                    {String(i + 1).padStart(2, '0')}
-                  </Text>
-                </View>
-
-                <TextInput
-                  value={g}
-                  onChangeText={(v) => updateGoal(i, v)}
-                  onFocus={() => setFocusedIndex(i)}
-                  onBlur={() => setFocusedIndex(null)}
-                  placeholder="e.g. Gym, Deep work, Read 30 min..."
-                  placeholderTextColor="rgba(170, 178, 200, 0.25)"
-                  autoCapitalize="sentences"
-                  style={styles.input}
-                />
-
-                {goals.length > 1 && (
-                  <Pressable 
-                    onPress={() => removeGoal(i)}
-                    hitSlop={8}
-                    style={styles.removeBtn}
-                  >
-                    <Text style={styles.removeBtnText}>×</Text>
-                  </Pressable>
-                )}
+              <View key={preset.id} style={styles.gridItem}>
+                <Pressable
+                  onPress={() => toggleGoal(preset.title)}
+                  style={[
+                    styles.card,
+                    isSelected && {
+                      backgroundColor: preset.activeBg,
+                      shadowColor: preset.activeShadow,
+                      shadowOpacity: 0.18,
+                      shadowRadius: 10,
+                      shadowOffset: { width: 0, height: 6 },
+                      borderColor: 'transparent',
+                      borderWidth: 0,
+                      elevation: 4,
+                    },
+                  ]}
+                >
+                  <Text style={styles.cardEmoji}>{preset.emoji}</Text>
+                </Pressable>
+                <Text style={[styles.cardLabel, isSelected && styles.cardLabelActive]}>
+                  {preset.title}
+                </Text>
               </View>
             );
           })}
-
-          {goals.length < MAX_GOALS && (
-            <Pressable
-              onPress={addGoal}
-              style={styles.addCard}
-            >
-              <Text style={styles.addCardText}>
-                + Add another ({MAX_GOALS - goals.length} left)
-              </Text>
-            </Pressable>
-          )}
         </View>
+
+        {/* Custom Goals Added Section */}
+        {customGoals.length > 0 && (
+          <View style={{ marginTop: 24 }}>
+            <Text style={styles.sectionTitle}>Your Custom Goals</Text>
+            {customGoals.map((title) => {
+              const isSelected = selectedTitles.includes(title);
+              return (
+                <Pressable
+                  key={title}
+                  onPress={() => toggleGoal(title)}
+                  style={[
+                    styles.customGoalCard,
+                    isSelected && styles.customGoalCardActive,
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <Text style={{ fontSize: 16, marginRight: 10 }}>ðŸŽ¯</Text>
+                    <Text style={[
+                      styles.customGoalText,
+                      isSelected && styles.customGoalTextActive,
+                    ]}>
+                      {title}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => removeCustomGoal(title)}
+                    hitSlop={8}
+                    style={styles.customGoalRemove}
+                  >
+                    <Text style={styles.customGoalRemoveText}>Ã—</Text>
+                  </Pressable>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Dash Card or Input for adding new goals */}
+        {showInput ? (
+          <View style={[styles.customInputContainer, focusedInput && styles.customInputFocused]}>
+            <TextInput
+              value={customText}
+              onChangeText={setCustomText}
+              onFocus={() => setFocusedInput(true)}
+              onBlur={() => setFocusedInput(false)}
+              placeholder="Type custom goal (e.g. Read 30m)..."
+              placeholderTextColor="rgba(108, 93, 211, 0.3)"
+              style={styles.customTextInput}
+              autoFocus
+              onSubmitEditing={saveCustomGoal}
+              autoCapitalize="sentences"
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable onPress={saveCustomGoal} style={styles.inputSaveBtn}>
+                <Text style={styles.inputSaveBtnText}>Save Goal</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => { setShowInput(false); setCustomText(''); }} 
+                style={styles.inputCancelBtn}
+              >
+                <Text style={styles.inputCancelBtnText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setShowInput(true)}
+            style={styles.addCustomBtn}
+          >
+            <Text style={styles.addCustomText}>
+              + ADD CUSTOM GOAL
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
     </OnboardingFrame>
   );
@@ -113,73 +210,160 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
   },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    backgroundColor: 'rgba(255, 255, 255, 0.015)',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  grid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 18,
+    columnGap: 10,
+    paddingTop: 12,
+  },
+  gridItem: {
+    width: '30%',
     alignItems: 'center',
-    gap: 12,
   },
-  cardFocused: {
-    borderColor: '#38BDF8',
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHasText: {
-    borderColor: 'rgba(56, 189, 248, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-  },
-  numberBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+  card: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.05)',
   },
-  numberBadgeText: {
-    color: 'rgba(238, 240, 246, 0.65)',
-    fontFamily: 'JetBrainsMono_500Medium',
-    fontSize: 10.5,
+  cardEmoji: {
+    fontSize: 26,
   },
-  input: {
-    flex: 1,
-    color: '#EEF0F6',
-    fontSize: 15.5,
-    fontFamily: 'Inter_400Regular',
-    paddingVertical: 0,
+  cardLabel: {
+    marginTop: 8,
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#8A94A6',
+    textAlign: 'center',
   },
-  removeBtn: {
-    paddingHorizontal: 6,
+  cardLabelActive: {
+    color: '#1E1B4B',
+    fontFamily: 'Inter_700Bold',
   },
-  removeBtnText: {
-    color: 'rgba(170, 178, 200, 0.4)',
-    fontSize: 22,
-    fontWeight: '300',
+  sectionTitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#8A94A6',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  addCard: {
+  addCustomBtn: {
     borderRadius: 16,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.005)',
+    borderColor: 'rgba(108, 93, 211, 0.25)',
+    backgroundColor: 'rgba(108, 93, 211, 0.02)',
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 20,
   },
-  addCardText: {
-    color: 'rgba(170, 178, 200, 0.6)',
+  addCustomText: {
+    color: '#6C5DD3',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11.5,
+  },
+  customInputContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.15)',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    marginTop: 20,
+    gap: 10,
+  },
+  customInputFocused: {
+    borderColor: '#6C5DD3',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  customTextInput: {
+    color: '#1E1B4B',
+    fontSize: 14.5,
+    fontFamily: 'Inter_400Regular',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F4F6FB',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.05)',
+  },
+  inputSaveBtn: {
+    flex: 1,
+    backgroundColor: '#6C5DD3',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  inputSaveBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+  },
+  inputCancelBtn: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  inputCancelBtnText: {
+    color: '#6C5DD3',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+  },
+  customGoalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.06)',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  customGoalCardActive: {
+    backgroundColor: '#ECEFFA',
+    borderColor: '#6C5DD3',
+  },
+  customGoalText: {
+    fontSize: 14.5,
     fontFamily: 'Inter_500Medium',
-    fontSize: 13.5,
+    color: '#6B7280',
+  },
+  customGoalTextActive: {
+    color: '#1E1B4B',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  customGoalRemove: {
+    padding: 4,
+  },
+  customGoalRemoveText: {
+    color: '#FB923C',
+    fontSize: 20,
+    fontWeight: '300',
   },
 });

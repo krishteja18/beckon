@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert, TextInput, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { fetchProfile, updateProfile } from '../../src/services/profile';
@@ -51,6 +51,9 @@ export default function Settings() {
       {
         text: 'Sign out', style: 'destructive',
         onPress: async () => {
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            localStorage.removeItem('bypass_auth');
+          }
           await signOut();
           router.replace('/(onboarding)/welcome');
         },
@@ -60,16 +63,16 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-bg items-center justify-center">
-        <ActivityIndicator color="#38BDF8" />
+      <SafeAreaView style={styles.safeArea} className="flex-1 bg-bg items-center justify-center">
+        <ActivityIndicator color="#6C5DD3" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-bg">
+    <SafeAreaView style={styles.safeArea} className="flex-1 bg-bg">
       <View style={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16 }}>
-        <Text style={{ color: '#EEF0F6', fontSize: 28, fontFamily: 'Inter_300Light', letterSpacing: -1 }}>
+        <Text style={styles.headerText}>
           Settings
         </Text>
       </View>
@@ -93,17 +96,15 @@ export default function Settings() {
                 <Pressable
                   key={opt.value}
                   onPress={() => updateField({ intensity: opt.value })}
-                  style={{
-                    flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: active ? 'rgba(56,189,248,0.4)' : 'rgba(204,218,240,0.06)',
-                    backgroundColor: active ? 'rgba(56,189,248,0.06)' : 'rgba(255,255,255,0.012)',
-                  }}
+                  style={[
+                    styles.intensityCard,
+                    active ? styles.intensityCardActive : styles.intensityCardInactive,
+                  ]}
                 >
-                  <Text style={{
-                    color: active ? '#67E8F9' : 'rgba(238,240,246,0.7)',
-                    fontSize: 13, fontFamily: 'Inter_500Medium',
-                  }}>
+                  <Text style={[
+                    styles.intensityText,
+                    active ? styles.intensityTextActive : styles.intensityTextInactive,
+                  ]}>
                     {opt.label}
                   </Text>
                 </Pressable>
@@ -118,7 +119,7 @@ export default function Settings() {
         </Section>
 
         {/* Morning sync */}
-        <Section label="Morning sync time">
+        <Section label="Morning call time">
           <Row label={`${profile?.morning_sync_time ?? '07:00'}`} hint="Tap to change" onPress={() => {}} />
         </Section>
 
@@ -131,18 +132,19 @@ export default function Settings() {
           />
         </Section>
 
+
         {/* Account */}
         <Section label="Account">
           <Row label="Sign out" hint="" onPress={handleSignOut} danger />
         </Section>
 
         {saving && (
-          <Text style={{ color: 'rgba(56,189,248,0.6)', fontSize: 11, textAlign: 'center', fontFamily: 'JetBrainsMono_400Regular' }}>
-            saving...
+          <Text style={styles.savingText}>
+            saving changes...
           </Text>
         )}
 
-        <Text style={{ color: 'rgba(150,160,185,0.2)', fontSize: 11, textAlign: 'center', marginTop: 8, fontFamily: 'Inter_400Regular' }}>
+        <Text style={styles.footerText}>
           Showup v0.1 · beta
         </Text>
       </ScrollView>
@@ -153,12 +155,7 @@ export default function Settings() {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{
-        color: 'rgba(150,160,185,0.5)',
-        fontSize: 10, letterSpacing: 1.2,
-        textTransform: 'uppercase',
-        fontFamily: 'JetBrainsMono_500Medium',
-      }}>
+      <Text style={styles.sectionLabel}>
         {label}
       </Text>
       {children}
@@ -172,22 +169,16 @@ function Row({
   return (
     <Pressable
       onPress={onPress}
-      style={{
-        borderRadius: 14, borderWidth: 1,
-        borderColor: 'rgba(204,218,240,0.06)',
-        backgroundColor: 'rgba(255,255,255,0.012)',
-        paddingHorizontal: 16, paddingVertical: 14,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      }}
+      style={styles.rowCard}
     >
-      <Text style={{
-        color: danger ? '#FCA5A5' : '#EEF0F6',
-        fontSize: 15, fontFamily: 'Inter_400Regular',
-      }}>
+      <Text style={[
+        styles.rowLabel,
+        danger ? { color: '#EF4444' } : { color: '#1E1B4B' }
+      ]}>
         {label}
       </Text>
       {hint && (
-        <Text style={{ color: 'rgba(150,160,185,0.4)', fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+        <Text style={styles.rowHint}>
           {hint}
         </Text>
       )}
@@ -204,16 +195,114 @@ function NameField({ value, onSave }: { value: string; onSave: (v: string) => vo
         onChangeText={setName}
         onBlur={() => name.trim() && name.trim() !== value && onSave(name.trim())}
         placeholder="Your name"
-        placeholderTextColor="rgba(170,178,200,0.3)"
-        style={{
-          flex: 1, color: '#EEF0F6', fontSize: 15,
-          paddingHorizontal: 16, paddingVertical: 14,
-          borderRadius: 14, borderWidth: 1,
-          borderColor: 'rgba(204,218,240,0.06)',
-          backgroundColor: 'rgba(255,255,255,0.012)',
-          fontFamily: 'Inter_400Regular',
-        }}
+        placeholderTextColor="#9CA3AF"
+        style={styles.nameInput}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: '#F4F6FB',
+  },
+  headerText: {
+    color: '#1E1B4B',
+    fontSize: 28,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: -0.6,
+  },
+  sectionLabel: {
+    color: '#6B7280',
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  rowCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  rowLabel: {
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+  },
+  rowHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+  },
+  intensityCard: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  intensityCardActive: {
+    borderColor: '#6C5DD3',
+    backgroundColor: '#ECEFFA',
+  },
+  intensityCardInactive: {
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF',
+  },
+  intensityText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  intensityTextActive: {
+    color: '#6C5DD3',
+  },
+  intensityTextInactive: {
+    color: '#6B7280',
+  },
+  nameInput: {
+    flex: 1,
+    color: '#1E1B4B',
+    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF',
+    fontFamily: 'Inter_500Medium',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  savingText: {
+    color: '#6C5DD3',
+    fontSize: 11,
+    textAlign: 'center',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  footerText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
+    fontFamily: 'Inter_400Regular',
+  },
+});
+

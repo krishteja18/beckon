@@ -1,3 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* On Web, enforce the premium, geometric Outfit typeface globally by default! */
+body, div, span, p, h1, h2, h3, h4, h5, h6, input, textarea, button, select, a, label {
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  letter-spacing: -0.02em !important; /* Premium tighter geometric tracking */
+}
+
+/* Retain high-fidelity Monospace formatting for stats and analytics numbers */
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', 'Courier New', Courier, monospace !important;
+  letter-spacing: normal !important;
+}

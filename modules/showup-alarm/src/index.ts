@@ -1,6 +1,6 @@
 import { requireNativeModule, EventEmitter } from 'expo-modules-core';
 
-export type CallType = 'morning' | 'midday' | 'evening' | 'wall' | 'retro';
+export type CallType = 'morning' | 'midday' | 'evening' | 'wall' | 'retro' | 'routine';
 
 export interface ScheduledAlarm {
   /** Unique id matching a goal_schedules row id, OR a synthetic one for ad-hoc alarms. */
@@ -40,11 +40,53 @@ interface NativeShowupAlarm {
   openOemAutostartSettings(): Promise<boolean>;
   /** Manufacturer string (Build.MANUFACTURER) — used for OEM-specific onboarding. */
   getDeviceManufacturer(): string;
+  /** Request PushKit registration for VoIP push tokens. */
+  requestCallKitPermissions(): Promise<boolean>;
+  /** Simulates a CallKit incoming call UI (for simulator testing). */
+  simulateIncomingCall(title: string): Promise<void>;
+  /** Start raw PCM audio capture (16kHz 16-bit Mono input) and playback (sampleRate 16-bit Mono output) */
+  startAudioSession(playbackSampleRate: number): Promise<void>;
+  /** Stop raw PCM audio capture and playback, releasing resources */
+  stopAudioSession(): Promise<void>;
+  /** Queue a base64 PCM audio chunk to be played back */
+  playAudioChunk(base64: string, sampleRate: number): Promise<void>;
 }
 
-const NativeModule = requireNativeModule('ShowupAlarm') as unknown as NativeShowupAlarm;
+let NativeModule: NativeShowupAlarm;
+try {
+  const mod = requireNativeModule('ShowupAlarm') as unknown as NativeShowupAlarm;
+  if (!mod || typeof mod.getDeviceManufacturer !== 'function') {
+    throw new Error('Native ShowupAlarm module is not loaded');
+  }
+  NativeModule = mod;
+} catch (e) {
+  // Safe mock for Web/Expo Go
+  NativeModule = {
+    scheduleAlarm: async () => {},
+    cancelAlarm: async () => {},
+    cancelAllAlarms: async () => {},
+    rearmAllAlarms: async () => {},
+    listPendingAlarms: async () => [],
+    canScheduleExactAlarms: async () => true,
+    openOemAutostartSettings: async () => false,
+    getDeviceManufacturer: () => 'unknown',
+    requestCallKitPermissions: async () => false,
+    simulateIncomingCall: async () => {},
+    startAudioSession: async () => {},
+    stopAudioSession: async () => {},
+    playAudioChunk: async () => {},
+  } as any;
+}
+
 // `EventEmitter` typing is overly restrictive; cast to a permissive shape.
-const emitter: any = new (EventEmitter as any)(NativeModule);
+let emitter: any;
+try {
+  emitter = new (EventEmitter as any)(NativeModule);
+} catch (e) {
+  emitter = {
+    addListener: () => ({ remove: () => {} }),
+  };
+}
 
 export const ShowupAlarm = {
   scheduleAlarm:           NativeModule.scheduleAlarm,
@@ -55,13 +97,35 @@ export const ShowupAlarm = {
   canScheduleExactAlarms:  NativeModule.canScheduleExactAlarms,
   openOemAutostartSettings: NativeModule.openOemAutostartSettings,
   manufacturer:            NativeModule.getDeviceManufacturer(),
+  requestCallKitPermissions: NativeModule.requestCallKitPermissions,
+  simulateIncomingCall:    NativeModule.simulateIncomingCall,
+  startAudioSession:       NativeModule.startAudioSession,
+  stopAudioSession:        NativeModule.stopAudioSession,
+  playAudioChunk:          NativeModule.playAudioChunk,
 
-  /** Subscribe to alarm-fired events. The ForegroundService emits this when an
-   *  alarm fires AND the app process is alive. (If the app is dead, the native
-   *  service handles the call entirely without JS involvement, then the next
-   *  app-open shows the captured outcome via the regular Supabase read.) */
+  /** Subscribe to alarm-fired events. */
   onAlarmFired(handler: (e: AlarmFiredEvent) => void) {
     return emitter.addListener('onAlarmFired', handler);
+  },
+
+  /** Subscribe to PushKit VoIP token changes. */
+  onVoipTokenReceived(handler: (e: { token: string }) => void) {
+    return emitter.addListener('onVoipTokenReceived', handler);
+  },
+
+  /** Subscribe to CallKit Call Answered events. */
+  onCallAnswered(handler: (e: { uuid: string }) => void) {
+    return emitter.addListener('onCallAnswered', handler);
+  },
+
+  /** Subscribe to CallKit Call Ended events. */
+  onCallEnded(handler: (e: { uuid: string }) => void) {
+    return emitter.addListener('onCallEnded', handler);
+  },
+
+  /** Subscribe to raw PCM microphone capture events. */
+  onAudioCapture(handler: (e: { data: string }) => void) {
+    return emitter.addListener('onAudioCapture', handler);
   },
 };
 

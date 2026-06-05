@@ -10,6 +10,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ai.showup.app",
+      "entitlements": {
+        "aps-environment": "development"
+      },
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Showup uses your microphone to have voice conversations with your coach.",
         "UIBackgroundModes": [

@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+﻿import { Stack } from 'expo-router';
 
 export default function OnboardingLayout() {
   return (
@@ -13,11 +13,10 @@ export default function OnboardingLayout() {
       <Stack.Screen name="welcome" />
       <Stack.Screen name="auth" />
       <Stack.Screen name="name" />
-      <Stack.Screen name="intensity" />
-      <Stack.Screen name="framework" />
+      <Stack.Screen name="coaching" />
       <Stack.Screen name="goals" />
       <Stack.Screen name="schedule" />
-      <Stack.Screen name="retro-time" />
+      <Stack.Screen name="routines" />
       <Stack.Screen name="permissions" />
       <Stack.Screen name="test-call" />
     </Stack>

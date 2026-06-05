@@ -6,7 +6,15 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFonts, Inter_100Thin, Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import {
+  useFonts,
+  Outfit_100Thin,
+  Outfit_300Light,
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+} from '@expo-google-fonts/outfit';
 import { JetBrainsMono_400Regular, JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { startAuthLifecycle, supabase } from '../src/services/supabase';
 import { syncAlarms } from '../src/services/alarmScheduler';
@@ -19,11 +27,20 @@ initSentry();
 
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Inter_100Thin,
-    Inter_300Light,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
+    // Map Inter family names directly to Outfit premium font assets so all styles auto-upgrade!
+    Inter_100Thin: Outfit_100Thin,
+    Inter_300Light: Outfit_300Light,
+    Inter_400Regular: Outfit_400Regular,
+    Inter_500Medium: Outfit_500Medium,
+    Inter_600SemiBold: Outfit_600SemiBold,
+    Inter_700Bold: Outfit_700Bold,
+    // Native Outfit registrations
+    Outfit_100Thin,
+    Outfit_300Light,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
     JetBrainsMono_400Regular,
     JetBrainsMono_500Medium,
   });
