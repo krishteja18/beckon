@@ -2,12 +2,14 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, useWindowDimensions, ViewStyle } from 'react-native';
 import { Canvas, Group, Path, Points, BlurMask, LinearGradient, Skia, vec, useClock } from '@shopify/react-native-skia';
 import { useDerivedValue } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 
 type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking';
 
 interface Props {
   state: VoiceState;
-  amplitude?: number;
+  /** Live 0..1 audio level (shared value) — bounces the wave with real loudness. */
+  amplitude?: SharedValue<number>;
   containerStyle?: ViewStyle;
   height?: number;
 }
@@ -25,10 +27,10 @@ const POSITIONS = [0.0, 0.3, 0.65, 1.0];
 export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Props) {
   const { width } = useWindowDimensions();
   const clock = useClock();
-  const vol = amplitude != null ? amplitude : (STATE_VOL[state] ?? 0.3);
+  const stateVol = STATE_VOL[state] ?? 0.3;
 
   const cy = height / 2;
-  const twistFreq = (Math.PI * 2 * 2.3) / width;
+  const twistFreq = (Math.PI * 2 * 1.1) / width;
   const twistSpeed = 0.5;
   const f1 = (Math.PI * 2 * 1.2) / width;
   const f2 = (Math.PI * 2 * 2.6) / width;
@@ -48,6 +50,8 @@ export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Pr
   const wavePath = useDerivedValue(() => {
     'worklet';
     const t = clock.value / 1000;
+    const live = amplitude ? amplitude.value : -1;
+    const vol = live >= 0 ? Math.max(stateVol * 0.5, Math.min(1, live)) : stateVol;
     const v = 0.15 + vol * 0.85;
     const A = 14 + v * 18;
     const p = Skia.Path.Make();
@@ -56,11 +60,13 @@ export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Pr
       if (x === 0) p.moveTo(x, y); else p.lineTo(x, y);
     }
     return p;
-  }, [clock, vol, width, height]);
+  }, [clock, stateVol, amplitude, width, height]);
 
   const points = useDerivedValue(() => {
     'worklet';
     const t = clock.value / 1000;
+    const live = amplitude ? amplitude.value : -1;
+    const vol = live >= 0 ? Math.max(stateVol * 0.5, Math.min(1, live)) : stateVol;
     const v = 0.15 + vol * 0.85;
     const A = 14 + v * 18;
     const halfW = 26 + v * 34;
@@ -71,7 +77,7 @@ export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Pr
       const y = yc + p.w * halfW * Math.cos(phi) + Math.sin(p.drift * t + p.seed) * 4;
       return vec(x, y);
     });
-  }, [clock, vol, width, height, particles]);
+  }, [clock, stateVol, amplitude, width, height, particles]);
 
   return (
     <View style={[styles.default, containerStyle]} pointerEvents="none">

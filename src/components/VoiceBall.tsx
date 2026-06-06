@@ -46,6 +46,10 @@ export function VoiceBall({ state, size = 120, onPress }: Props) {
       // Energetic voice stretch
       return 1.0 + Math.sin(t.value * 4.5) * 0.18;
     }
+    if (state === 'processing') {
+      // Quick "thinking" pulse — eyes narrow and throb
+      return 0.45 + Math.abs(Math.sin(t.value * 6.0)) * 0.45;
+    }
     if (state === 'listening') {
       // Soft breathing
       return 1.0 + Math.sin(t.value * 1.8) * 0.08;

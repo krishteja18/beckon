@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
+import { useSharedValue } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { VoiceSession, SessionConfig, VoiceState, ToolCallEvent } from '../services/voiceSession';
 import { ToolResult, drainPendingOutcomes } from '../services/voiceTools';
 import { bucketForHour } from '../services/temporal';
@@ -16,12 +18,39 @@ interface UseVoiceSessionReturn {
   voiceState: VoiceState;
   transcript: string[];
   toolCalls: ToolCallLogEntry[];
+  /** Live 0..1 audio level (coach playback + mic), drives the wave's waver. */
+  amplitude: SharedValue<number>;
   start: (config: SessionConfig) => Promise<void>;
   stop: () => void;
   sendAudio: (pcmBase64: string) => void;
   /** Send a typed text message (web/test path or accessibility). */
   sendText: (text: string) => void;
   error: string | null;
+}
+
+/** RMS loudness (0..1) of a base64 PCM16 frame, scaled for visual expressiveness. */
+function rmsLevelFromPcm16Base64(b64: string): number {
+  try {
+    if (typeof atob !== 'function') return 0;
+    const bin = atob(b64);
+    const len = bin.length;
+    if (len < 2) return 0;
+    let sumSq = 0;
+    let count = 0;
+    // Cap work to ~1024 samples regardless of frame size.
+    const stride = 2 * Math.max(1, Math.floor((len / 2) / 1024));
+    for (let i = 0; i + 1 < len; i += stride) {
+      let s = (bin.charCodeAt(i + 1) << 8) | bin.charCodeAt(i);
+      if (s >= 32768) s -= 65536;
+      sumSq += s * s;
+      count++;
+    }
+    if (count === 0) return 0;
+    const rms = Math.sqrt(sumSq / count) / 32768; // 0..1
+    return Math.min(1, rms * 5); // speech RMS is small — scale up
+  } catch {
+    return 0;
+  }
 }
 
 const parseRate = (mime: string) => {
@@ -130,19 +159,37 @@ export function useVoiceSession(): UseVoiceSessionReturn {
   const configRef = useRef<SessionConfig | null>(null);
   const startedAtRef = useRef<Date | null>(null);
   const transcriptRef = useRef<string[]>([]);
+  const decayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const amplitude = useSharedValue(0);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState<string[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCallLogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Audio frames spike the amplitude (attack); this loop decays it (release),
+  // so the wave bounces with live loudness and settles during silence.
+  const startDecay = useCallback(() => {
+    if (decayRef.current) return;
+    decayRef.current = setInterval(() => {
+      const next = amplitude.value * 0.82;
+      amplitude.value = next < 0.01 ? 0 : next;
+    }, 60);
+  }, [amplitude]);
+
+  const stopDecay = useCallback(() => {
+    if (decayRef.current) { clearInterval(decayRef.current); decayRef.current = null; }
+    amplitude.value = 0;
+  }, [amplitude]);
+
   const cleanupAudio = useCallback(() => {
+    stopDecay();
     if (isWeb) return;
     ShowupAlarm.stopAudioSession();
     if (audioSubRef.current) {
       audioSubRef.current.remove();
       audioSubRef.current = null;
     }
-  }, []);
+  }, [stopDecay]);
 
   const persistCtx = useCallback((): PersistCtx => ({
     callType: configRef.current?.callType ?? 'midday',
@@ -159,6 +206,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     startedAtRef.current = new Date();
     transcriptRef.current = [];
 
+    amplitude.value = 0;
+    startDecay();
+
     const session = new VoiceSession();
     sessionRef.current = session;
 
@@ -170,6 +220,9 @@ export function useVoiceSession(): UseVoiceSessionReturn {
         setTranscript((prev) => [...prev, line]);
       },
       onAudioOut: (base64, mimeType) => {
+        // Coach is speaking → drive the waver from playback loudness.
+        const level = rmsLevelFromPcm16Base64(base64);
+        if (level > amplitude.value) amplitude.value = level;
         if (isWeb) return;
         ShowupAlarm.playAudioChunk(base64, parseRate(mimeType));
       },
@@ -198,10 +251,13 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     if (!isWeb) {
       await ShowupAlarm.startAudioSession(24000);
       audioSubRef.current = ShowupAlarm.onAudioCapture((e) => {
+        // User is speaking → also feed the waver from mic loudness.
+        const level = rmsLevelFromPcm16Base64(e.data);
+        if (level > amplitude.value) amplitude.value = level;
         session.sendAudio(e.data);
       });
     }
-  }, [cleanupAudio, persistCtx]);
+  }, [cleanupAudio, persistCtx, amplitude, startDecay]);
 
   const stop = useCallback(async () => {
     sessionRef.current?.close();
@@ -219,5 +275,5 @@ export function useVoiceSession(): UseVoiceSessionReturn {
     sessionRef.current?.sendText(text);
   }, []);
 
-  return { voiceState, transcript, toolCalls, start, stop, sendAudio, sendText, error };
+  return { voiceState, transcript, toolCalls, amplitude, start, stop, sendAudio, sendText, error };
 }

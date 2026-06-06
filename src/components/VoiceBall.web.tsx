@@ -34,6 +34,10 @@ export function VoiceBall({ state, size = 120, onPress }: Props) {
           0%, 96%, 100% { transform: scaleY(1); }
           98% { transform: scaleY(0.05); }
         }
+        @keyframes thinkEyes {
+          0%, 100% { transform: scaleY(0.42); }
+          50% { transform: scaleY(0.92) scaleX(0.88); }
+        }
         @keyframes glowPulse {
           0%, 100% { filter: blur(12px) opacity(0.8); }
           50% { filter: blur(18px) opacity(1); }
@@ -166,6 +170,8 @@ export function VoiceBall({ state, size = 120, onPress }: Props) {
               // @ts-ignore
               animation: state === 'speaking'
                 ? 'stretchEyes-speaking 1.2s ease-in-out infinite'
+                : state === 'processing'
+                ? 'thinkEyes 0.7s ease-in-out infinite'
                 : state === 'listening'
                 ? 'breatheEyes 2s ease-in-out infinite'
                 : 'blinkEyes 6s ease-in-out infinite',
@@ -182,6 +188,8 @@ export function VoiceBall({ state, size = 120, onPress }: Props) {
               // @ts-ignore
               animation: state === 'speaking'
                 ? 'stretchEyes-speaking 1.2s ease-in-out infinite 0.1s' // slight phase offset for organic look
+                : state === 'processing'
+                ? 'thinkEyes 0.7s ease-in-out infinite 0.12s'
                 : state === 'listening'
                 ? 'breatheEyes 2s ease-in-out infinite 0.1s'
                 : 'blinkEyes 6s ease-in-out infinite',

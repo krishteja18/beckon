@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, useWindowDimensions, ViewStyle } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
 type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking';
 
 interface Props {
   state: VoiceState;
-  /** 0..1 live mic level — scales twist amplitude + ribbon width. */
-  amplitude?: number;
+  /** Live 0..1 audio level (shared value) — bounces the wave with real loudness. */
+  amplitude?: SharedValue<number>;
   containerStyle?: ViewStyle;
   height?: number;
 }
@@ -63,11 +64,11 @@ interface P {
 export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Props) {
   const { width } = useWindowDimensions();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const volRef = useRef(STATE_VOL[state]);
+  const stateVolRef = useRef(STATE_VOL[state]);
+  const ampRef = useRef<SharedValue<number> | undefined>(amplitude);
 
-  useEffect(() => {
-    volRef.current = amplitude != null ? amplitude : (STATE_VOL[state] ?? 0.3);
-  }, [state, amplitude]);
+  useEffect(() => { stateVolRef.current = STATE_VOL[state] ?? 0.3; }, [state]);
+  useEffect(() => { ampRef.current = amplitude; }, [amplitude]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -88,7 +89,7 @@ export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Pr
 
     const cy = H / 2;
     // Twist: how many half-rotations of the ribbon across the width.
-    const twistFreq = (Math.PI * 2 * 2.3) / W;
+    const twistFreq = (Math.PI * 2 * 1.1) / W;
     const twistSpeed = 0.5;
 
     // Dense ribbon surface: fill (along × across) with particles.
@@ -106,7 +107,7 @@ export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Pr
       };
     });
 
-    let vol = volRef.current;
+    let vol = stateVolRef.current;
     let raf = 0;
     const start = performance.now();
 
@@ -117,7 +118,12 @@ export function CallWaves({ state, amplitude, containerStyle, height = 160 }: Pr
 
     const draw = () => {
       const t = (performance.now() - start) / 1000;
-      vol += (volRef.current - vol) * 0.06;
+      // Live audio level bounces the wave; state volume is the resting floor.
+      const sv = ampRef.current;
+      const live = sv ? sv.value : -1;
+      const floor = stateVolRef.current * 0.5;
+      const target = live >= 0 ? Math.max(floor, Math.min(1, live)) : stateVolRef.current;
+      vol += (target - vol) * 0.2;
       const v = 0.15 + vol * 0.85;
 
       const A = 14 + v * 18;       // centerline wave amplitude

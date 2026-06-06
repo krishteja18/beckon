@@ -1,7 +1,9 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
-  Modal, View, Text, Pressable, TextInput, Platform, StyleSheet,
+  Modal, View, Text, Pressable, TextInput, Platform, StyleSheet, useWindowDimensions,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { VoiceBall } from './VoiceBall';
@@ -34,7 +36,7 @@ const isWeb = Platform.OS === 'web';
 export function VoiceOverlayProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [textInput, setTextInput] = useState('');
-  const { voiceState, transcript, toolCalls, start, stop, sendText, error } = useVoiceSession();
+  const { voiceState, transcript, toolCalls, amplitude, start, stop, sendText, error } = useVoiceSession();
 
   const open = useCallback((cfg?: Partial<SessionConfig>) => {
     setIsOpen(true);
@@ -57,6 +59,7 @@ export function VoiceOverlayProvider({ children }: { children: React.ReactNode }
       <Modal transparent visible={isOpen} animationType="fade" onRequestClose={close}>
         <VoiceStage
           voiceState={voiceState}
+          amplitude={amplitude}
           lastLine={transcript.length ? transcript[transcript.length - 1] : null}
           lastTool={toolCalls.length ? toolCalls[toolCalls.length - 1] : null}
           error={error}
@@ -67,6 +70,45 @@ export function VoiceOverlayProvider({ children }: { children: React.ReactNode }
         />
       </Modal>
     </Ctx.Provider>
+  );
+}
+
+/** Gemini-style edge glow — multi-color gradients along all four screen edges,
+ *  breathing in opacity, brighter when the coach is active. */
+function EdgeGlow({ active }: { active: boolean }) {
+  const { width, height } = useWindowDimensions();
+  const pulse = useSharedValue(0.5);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(active ? 1 : 0.55, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+  }, [active]);
+
+  const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  const inset = 1.5;
+  const w = width - inset * 2;
+  const h = height - inset * 2;
+
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
+      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <SvgLinearGradient id="eg-line" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#E4A134" />
+            <Stop offset="0.33" stopColor="#F472B6" />
+            <Stop offset="0.66" stopColor="#38BDF8" />
+            <Stop offset="1" stopColor="#34D399" />
+          </SvgLinearGradient>
+        </Defs>
+        {/* faint halo */}
+        <Rect x={inset} y={inset} width={w} height={h} rx={2} fill="none" stroke="url(#eg-line)" strokeWidth={6} opacity={0.28} />
+        {/* thin bright line */}
+        <Rect x={inset} y={inset} width={w} height={h} rx={2} fill="none" stroke="url(#eg-line)" strokeWidth={1.8} />
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -91,9 +133,10 @@ function VoiceGradientBg() {
 }
 
 function VoiceStage({
-  voiceState, lastLine, lastTool, error, textInput, setTextInput, onSend, onEnd,
+  voiceState, amplitude, lastLine, lastTool, error, textInput, setTextInput, onSend, onEnd,
 }: {
   voiceState: 'idle' | 'listening' | 'processing' | 'speaking';
+  amplitude: SharedValue<number>;
   lastLine: string | null;
   lastTool: { id: string; result: { ok: boolean; message?: string; requires?: 'confirmation' } } | null;
   error: string | null;
@@ -149,7 +192,7 @@ function VoiceStage({
 
         {/* Voice wave — sits above the controls, wavers with the conversation */}
         <View style={styles.waveBand}>
-          <CallWaves state={voiceState} containerStyle={StyleSheet.absoluteFill as object} height={185} />
+          <CallWaves state={voiceState} amplitude={amplitude} containerStyle={StyleSheet.absoluteFill as object} height={185} />
         </View>
 
         {/* Bottom: minimal, premium controls */}
@@ -193,6 +236,8 @@ function VoiceStage({
           <Text style={styles.endHint}>End</Text>
         </View>
       </SafeAreaView>
+
+      <EdgeGlow active={voiceState !== 'idle'} />
     </View>
   );
 }
