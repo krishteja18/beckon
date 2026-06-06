@@ -23,3 +23,5 @@ Thumbs.db
 
 expo-env.d.ts
 # @end expo-cli
+# Local chat transcript (contains secrets — never commit)
+conversation.md
