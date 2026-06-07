@@ -103,6 +103,23 @@ async function persistOutcomes(ctx: PersistCtx): Promise<void> {
       outcome: { outcomes },
     });
     localStorage.setItem('mock_check_ins', JSON.stringify(arr));
+
+    // Mirror to mock_task_events so the timeline reflects voice-marked outcomes
+    // (same shape outcomes.ts reads). Goals key by schedule_id; routines by note tag.
+    const te = JSON.parse(localStorage.getItem('mock_task_events') || '[]');
+    const today = localDateString(now);
+    for (const o of outcomes) {
+      const isGoal = o.kind === 'goal';
+      te.push({
+        kind: kindForStatus(o.status),
+        goal_id: isGoal ? o.id : null,
+        schedule_id: isGoal ? ((o as any).scheduleId ?? null) : null,
+        note: isGoal ? null : `[routine:${o.id}]`,
+        user_local_date: today,
+        occurred_at: now.toISOString(),
+      });
+    }
+    localStorage.setItem('mock_task_events', JSON.stringify(te));
     return;
   }
 
@@ -131,6 +148,7 @@ async function persistOutcomes(ctx: PersistCtx): Promise<void> {
     const rows = outcomes.map(o => ({
       user_id: user.id,
       goal_id: o.kind === 'goal' ? o.id : null,
+      schedule_id: o.kind === 'goal' ? (o.scheduleId ?? null) : null,
       kind: kindForStatus(o.status),
       occurred_at: now.toISOString(),
       user_local_date: localDateString(now),

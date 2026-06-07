@@ -15,6 +15,10 @@
 
 import { supabase } from './supabase';
 
+function localDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export interface VelocityResult {
   /** 0..100 integer */
   percent: number;
@@ -47,23 +51,40 @@ export async function computeVelocity(days: number = 7): Promise<VelocityResult>
 
   if (!schedules || schedules.length === 0) return { percent: 0, completed: 0, expected: 0, trend: null };
 
-  // Load check-ins from the last 14 days (current 7 days + previous 7 days)
+  // Load completed task_events from the last 14 days (current + previous week).
+  // task_events is the canonical outcome store written by BOTH manual marks and
+  // voice calls — so this counts completions from either path.
   const windowStart = new Date();
   windowStart.setDate(windowStart.getDate() - (days * 2) + 1);
   windowStart.setHours(0, 0, 0, 0);
 
-  const { data: checkIns } = await supabase
-    .from('check_ins')
-    .select('started_at, goal_ids')
-    .gte('started_at', windowStart.toISOString());
+  const { data: events } = await supabase
+    .from('task_events')
+    .select('goal_id, schedule_id, user_local_date')
+    .eq('kind', 'completed')
+    .gte('user_local_date', localDateString(windowStart));
 
-  const completedGoalsByDay = new Map<string, Set<string>>(); // dayKey → set of goal_ids
-  for (const ci of checkIns ?? []) {
-    const dayKey = new Date(ci.started_at).toISOString().slice(0, 10);
-    const set = completedGoalsByDay.get(dayKey) ?? new Set<string>();
-    for (const gid of (ci.goal_ids as string[] | null) ?? []) set.add(gid);
-    completedGoalsByDay.set(dayKey, set);
+  // dayKey → completed goal_ids / completed schedule_ids
+  const goalsByDay = new Map<string, Set<string>>();
+  const schedsByDay = new Map<string, Set<string>>();
+  for (const e of events ?? []) {
+    const dayKey = e.user_local_date as string;
+    if (e.goal_id) {
+      const set = goalsByDay.get(dayKey) ?? new Set<string>();
+      set.add(e.goal_id as string);
+      goalsByDay.set(dayKey, set);
+    }
+    if (e.schedule_id) {
+      const set = schedsByDay.get(dayKey) ?? new Set<string>();
+      set.add(e.schedule_id as string);
+      schedsByDay.set(dayKey, set);
+    }
   }
+  const EMPTY = new Set<string>();
+  // A schedule is "done" on a day if its own slot was marked (per-slot) OR the
+  // whole goal was marked (goal-level, e.g. a voice call with no specific slot).
+  const isScheduleDone = (dayKey: string, s: { id: string; goal_id: string }) =>
+    (schedsByDay.get(dayKey) ?? EMPTY).has(s.id) || (goalsByDay.get(dayKey) ?? EMPTY).has(s.goal_id);
 
   // Calculate current 7 days (today back to 7 days ago)
   let expectedCurrent = 0;
@@ -77,18 +98,16 @@ export async function computeVelocity(days: number = 7): Promise<VelocityResult>
   for (let i = 0; i < days; i++) {
     const d = new Date(currentStart);
     d.setDate(d.getDate() + i);
-    const dayKey = d.toISOString().slice(0, 10);
+    const dayKey = localDateString(d);
     const dow = d.getDay();
 
     // Don't count future times
     if (d.getTime() > Date.now()) continue;
 
-    const todaysCompleted = completedGoalsByDay.get(dayKey) ?? new Set();
-
     for (const s of schedules) {
       if (!s.scheduled_days.includes(dow)) continue;
       expectedCurrent++;
-      if (todaysCompleted.has(s.goal_id)) completedCurrent++;
+      if (isScheduleDone(dayKey, s)) completedCurrent++;
     }
   }
 
@@ -102,17 +121,15 @@ export async function computeVelocity(days: number = 7): Promise<VelocityResult>
   for (let i = 0; i < days; i++) {
     const d = new Date(prevStart);
     d.setDate(d.getDate() + i);
-    const dayKey = d.toISOString().slice(0, 10);
+    const dayKey = localDateString(d);
     const dow = d.getDay();
 
     if (d.getTime() > Date.now()) continue;
 
-    const todaysCompleted = completedGoalsByDay.get(dayKey) ?? new Set();
-
     for (const s of schedules) {
       if (!s.scheduled_days.includes(dow)) continue;
       expectedPrev++;
-      if (todaysCompleted.has(s.goal_id)) completedPrev++;
+      if (isScheduleDone(dayKey, s)) completedPrev++;
     }
   }
 

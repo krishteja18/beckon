@@ -451,6 +451,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["task_event_kind"]
           note: string | null
           occurred_at: string
+          schedule_id: string | null
           snooze_count: number
           source: string
           time_bucket: string
@@ -465,6 +466,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["task_event_kind"]
           note?: string | null
           occurred_at?: string
+          schedule_id?: string | null
           snooze_count?: number
           source?: string
           time_bucket: string
@@ -479,6 +481,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["task_event_kind"]
           note?: string | null
           occurred_at?: string
+          schedule_id?: string | null
           snooze_count?: number
           source?: string
           time_bucket?: string
@@ -493,6 +496,13 @@ export type Database = {
             columns: ["goal_id"]
             isOneToOne: false
             referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_events_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "goal_schedules"
             referencedColumns: ["id"]
           },
         ]

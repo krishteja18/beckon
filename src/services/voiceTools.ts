@@ -162,6 +162,7 @@ export const VOICE_TOOL_DECLARATIONS: FnDecl[] = [
       properties: {
         entityKind: { type: 'STRING', description: 'Which entity type.', enum: ['goal', 'routine'] },
         entityId: { type: 'STRING', description: 'The goal id or routine id.' },
+        scheduleId: { type: 'STRING', description: 'For a goal with multiple named slots (e.g. Breakfast/Lunch/Snack), the specific goal_schedules slot id from findEntities being marked. Omit for single-slot goals or routines.' },
         status: { type: 'STRING', description: 'Outcome.', enum: ['done', 'partial', 'skipped'] },
         note: { type: 'STRING', description: 'Optional one-line context the user gave for the outcome.' },
       },
@@ -330,8 +331,9 @@ export async function dispatchToolCall(
         const kind = String(args.entityKind);
         const id = String(args.entityId);
         const status = String(args.status);
+        const scheduleId = args.scheduleId ? String(args.scheduleId) : undefined;
         // Stash the outcome on the session for the close hook to consume.
-        pendingOutcomes.push({ kind, id, status, note: args.note });
+        pendingOutcomes.push({ kind, id, status, note: args.note, scheduleId });
         return { ok: true, message: `Logged: ${status}.` };
       }
 
@@ -431,6 +433,8 @@ interface PendingOutcome {
   id: string;
   status: string;
   note?: string;
+  /** For a goal with named slots, the specific goal_schedules id being marked. */
+  scheduleId?: string;
 }
 
 const pendingOutcomes: PendingOutcome[] = [];

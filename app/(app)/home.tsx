@@ -6,6 +6,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, Eas
 import { AmbientBackground } from '../../src/components/AmbientBackground';
 import { fetchTodayTimeline, TimelineSlot, fetchGoalsWithSchedules, GoalWithSchedules, slotDisplayName } from '../../src/services/goals';
 import { fetchRoutines, Routine } from '../../src/services/routines';
+import { fetchTodayOutcomes, recordOutcome, clearTodayOutcome, outcomeKey, OutcomeKind, OutcomeTarget } from '../../src/services/outcomes';
 import { computeVelocity } from '../../src/services/velocity';
 import { fetchProfile, updateProfile } from '../../src/services/profile';
 import { TimePickerSheet } from '../../src/components/TimePickerSheet';
@@ -67,6 +68,8 @@ export default function Home() {
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [selectedSlot, setSelectedSlot] = useState<TimelineSlot | null>(null);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
+  // outcomeKey → recorded outcome for today (manual marks + voice marks)
+  const [outcomes, setOutcomes] = useState<Map<string, OutcomeKind>>(new Map());
 
   // Shared Animation Values
   const screenOpacity = useSharedValue(0);
@@ -189,31 +192,20 @@ export default function Home() {
       });
     }
 
-    // Morning Kickoff — daily, UNLESS a goal is scheduled at/before it
-    // (intelligent merger: the earlier goal call absorbs the morning motivation).
+    // Morning Kickoff — always shown at its set time (like any scheduled call).
     if (kickoffT) {
       const [hh, mm] = kickoffT.split(':').map(Number);
-      const kickoffMins = hh * 60 + mm;
-      const earliestGoalMins = slots
-        .filter(s => s.kind === 'goal')
-        .reduce((min, s) => {
-          const [gh, gm] = s.time.split(':').map(Number);
-          return Math.min(min, gh * 60 + gm);
-        }, Infinity);
-      const absorbed = earliestGoalMins <= kickoffMins;
-      if (!absorbed) {
-        const { time, timeLabel } = formatTime(hh, mm);
-        slots.push({
-          kind: 'kickoff',
-          goalId: 'kickoff',
-          goalTitle: 'Morning Kickoff',
-          framework: anchorFramework,
-          scheduleId: 'kickoff',
-          time,
-          timeLabel,
-          status: computeStatus(kickoffMins),
-        });
-      }
+      const { time, timeLabel } = formatTime(hh, mm);
+      slots.push({
+        kind: 'kickoff',
+        goalId: 'kickoff',
+        goalTitle: 'Morning Kickoff',
+        framework: anchorFramework,
+        scheduleId: 'kickoff',
+        time,
+        timeLabel,
+        status: computeStatus(hh * 60 + mm),
+      });
     }
 
     return slots.sort((a, b) => a.time.localeCompare(b.time));
@@ -221,15 +213,17 @@ export default function Home() {
 
   const loadTimeline = useCallback(async () => {
     try {
-      const [allGoals, allRoutines, vel, profile, avoidances] = await Promise.all([
+      const [allGoals, allRoutines, vel, profile, avoidances, todayOutcomes] = await Promise.all([
         fetchGoalsWithSchedules(),
         fetchRoutines(),
         computeVelocity(),
         fetchProfile(),
         listAvoidanceGoals(),
+        fetchTodayOutcomes(),
       ]);
       setGoals(allGoals);
       setRoutines(allRoutines);
+      setOutcomes(todayOutcomes);
 
       setExpectedEvents(vel.expected);
       if (vel.expected > 0) {
@@ -276,6 +270,32 @@ export default function Home() {
       loadTimeline();
     }, [loadTimeline]),
   );
+
+  const targetForSlot = (slot: TimelineSlot): OutcomeTarget => ({
+    slotKind: slot.kind,
+    goalId: slot.goalId,
+    scheduleId: slot.scheduleId,
+  });
+  // Recorded outcomes are stored against the actual calendar date, so they only
+  // apply when viewing today's column — other weekdays stay fresh.
+  const viewingToday = selectedDay === now.getDay();
+  const slotOutcome = (slot: TimelineSlot): OutcomeKind | undefined =>
+    viewingToday ? outcomes.get(outcomeKey(targetForSlot(slot))) : undefined;
+
+  const markSelected = async (status: 'done' | 'skipped') => {
+    if (!selectedSlot) return;
+    try { await recordOutcome(targetForSlot(selectedSlot), status); }
+    catch (e) { console.warn('[home] recordOutcome', e); }
+    setShowDetailSheet(false);
+    loadTimeline();
+  };
+  const undoSelected = async () => {
+    if (!selectedSlot) return;
+    try { await clearTodayOutcome(targetForSlot(selectedSlot)); }
+    catch (e) { console.warn('[home] clearTodayOutcome', e); }
+    setShowDetailSheet(false);
+    loadTimeline();
+  };
 
   // Today's Date: e.g. "Wed, Jun 4"
   const todayDateStr = now.toLocaleDateString('en-US', {
@@ -597,11 +617,14 @@ export default function Home() {
                 contentContainerStyle={styles.timelineScroll}
               >
                 {timeline.map((slot, i) => {
-                  const isNext = nextCall && slot.scheduleId === nextCall.scheduleId;
+                  const oc = slotOutcome(slot);
+                  const isCompleted = oc === 'completed';
+                  const isSkipped = oc === 'skipped';
+                  const isNext = nextCall && slot.scheduleId === nextCall.scheduleId && !isCompleted && !isSkipped;
                   const isDone = slot.status === 'done';
-                  const isActive = slot.status === 'active';
+                  const isActive = slot.status === 'active' && !isCompleted && !isSkipped;
                   const isUpcoming = slot.status === 'upcoming';
-                  
+
                   return (
                     <Pressable
                       key={`${slot.scheduleId}-${i}`}
@@ -615,21 +638,38 @@ export default function Home() {
                         isUpcoming && styles.pillUpcoming,
                         isActive && styles.pillActive,
                         isNext && styles.pillNext,
+                        isCompleted && styles.pillCompleted,
+                        isSkipped && styles.pillSkipped,
                       ]}
                     >
-                      <Text style={[
-                        styles.pillTimeText,
-                        isDone && styles.pillTimeDone,
-                        isActive && styles.pillTimeActive,
-                        isUpcoming && styles.pillTimeUpcoming,
-                        isNext && styles.pillTimeNext,
-                      ]}>
-                        {slot.timeLabel.split(' ')[0]}
-                      </Text>
+                      <View style={styles.pillTimeRow}>
+                        <Text style={[
+                          styles.pillTimeText,
+                          isDone && styles.pillTimeDone,
+                          isActive && styles.pillTimeActive,
+                          isUpcoming && styles.pillTimeUpcoming,
+                          isNext && styles.pillTimeNext,
+                        ]}>
+                          {slot.timeLabel.split(' ')[0]}
+                        </Text>
+                        <Text style={[
+                          styles.pillPeriodText,
+                          isDone && styles.pillTimeDone,
+                          isActive && styles.pillTimeActive,
+                          isUpcoming && styles.pillTimeUpcoming,
+                          isNext && styles.pillTimeNext,
+                        ]}>
+                          {slot.timeLabel.split(' ')[1]}
+                        </Text>
+                      </View>
 
-                      {/* Status indicator dot */}
+                      {/* Status indicator — ✓ / — for recorded outcomes, else a dot */}
                       <View style={styles.pillDotContainer}>
-                        {isActive || isNext ? (
+                        {isCompleted ? (
+                          <Text style={styles.pillCheck}>✓</Text>
+                        ) : isSkipped ? (
+                          <Text style={styles.pillSkip}>—</Text>
+                        ) : isActive || isNext ? (
                           <Animated.View style={[
                             styles.pillDotActive,
                             isActive ? styles.pillDotActiveLive : styles.pillDotActiveNext,
@@ -837,6 +877,33 @@ export default function Home() {
                      'Reflect on today\'s wins and setbacks, celebrate micro-successes, and synthesize lessons for tomorrow.'}
                   </Text>
                 </View>
+
+                {/* Outcome — mark this slot done / skipped (or undo). Today only. */}
+                {viewingToday && (
+                <View style={styles.outcomeRow}>
+                  {slotOutcome(selectedSlot) ? (
+                    <>
+                      <View style={styles.outcomeStatusPill}>
+                        <Text style={styles.outcomeStatusText}>
+                          {slotOutcome(selectedSlot) === 'completed' ? '✓  Marked done' : '—  Marked skipped'}
+                        </Text>
+                      </View>
+                      <Pressable style={[styles.outcomeBtn, styles.outcomeBtnUndo]} onPress={undoSelected}>
+                        <Text style={styles.outcomeBtnUndoText}>Undo</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <>
+                      <Pressable style={[styles.outcomeBtn, styles.outcomeBtnDone]} onPress={() => markSelected('done')}>
+                        <Text style={styles.outcomeBtnDoneText}>✓  Mark done</Text>
+                      </Pressable>
+                      <Pressable style={[styles.outcomeBtn, styles.outcomeBtnSkip]} onPress={() => markSelected('skipped')}>
+                        <Text style={styles.outcomeBtnSkipText}>Skip</Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
+                )}
 
                 <View style={styles.modalActionRow}>
                   <Pressable
@@ -1240,10 +1307,42 @@ const styles = StyleSheet.create({
     elevation: 3,
     backgroundColor: '#FFFFFF',
   },
+  pillTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+  },
   pillTimeText: {
     fontFamily: 'JetBrainsMono_500Medium',
     fontSize: 11.5,
     letterSpacing: -0.2,
+  },
+  pillPeriodText: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 8.5,
+    letterSpacing: 0.3,
+    opacity: 0.75,
+  },
+  pillCompleted: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#6EE7B7',
+  },
+  pillSkipped: {
+    backgroundColor: '#F4F6FB',
+    borderColor: 'rgba(108, 93, 211, 0.12)',
+    opacity: 0.7,
+  },
+  pillCheck: {
+    fontSize: 11,
+    lineHeight: 12,
+    color: '#10B981',
+    fontFamily: 'Inter_600SemiBold',
+  },
+  pillSkip: {
+    fontSize: 11,
+    lineHeight: 12,
+    color: '#9CA3AF',
+    fontFamily: 'Inter_600SemiBold',
   },
   pillTimeDone: {
     color: '#6C5DD3',
@@ -1464,6 +1563,63 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 19,
     marginBottom: 24,
+  },
+  outcomeRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  outcomeBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  outcomeBtnDone: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  outcomeBtnDoneText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  outcomeBtnSkip: {
+    backgroundColor: 'rgba(108, 93, 211, 0.04)',
+    borderColor: 'rgba(108, 93, 211, 0.12)',
+  },
+  outcomeBtnSkipText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  outcomeStatusPill: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+  },
+  outcomeStatusText: {
+    color: '#059669',
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  outcomeBtnUndo: {
+    backgroundColor: 'rgba(108, 93, 211, 0.04)',
+    borderColor: 'rgba(108, 93, 211, 0.12)',
+    flex: 0,
+    paddingHorizontal: 20,
+  },
+  outcomeBtnUndoText: {
+    color: '#6C5DD3',
+    fontSize: 14,
+    fontFamily: 'Inter_600SemiBold',
   },
   modalActionRow: {
     flexDirection: 'row',
