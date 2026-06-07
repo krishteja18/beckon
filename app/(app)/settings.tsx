@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { fetchProfile, updateProfile, deleteAccount } from '../../src/services/profile';
 import { signOut } from '../../src/services/auth';
-import { TimePickerSheet } from '../../src/components/TimePickerSheet';
 import { Database } from '../../src/services/database.types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -23,20 +22,11 @@ const FRAMEWORK_OPTIONS: { value: Framework; label: string; desc: string }[] = [
   { value: 'deep_work',     label: 'Deep Work',     desc: 'Focus blocks, output over busywork' },
 ];
 
-function formatTime12h(t?: string | null): string {
-  if (!t) return '—';
-  const [hh, mm] = t.split(':').map(Number);
-  const period = hh < 12 ? 'AM' : 'PM';
-  const dH = hh % 12 || 12;
-  return `${dH}:${String(mm).padStart(2, '0')} ${period}`;
-}
-
 export default function Settings() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [picker, setPicker] = useState<null | 'retro' | 'morning'>(null);
 
   const load = async () => {
     try {
@@ -169,12 +159,6 @@ export default function Settings() {
           </View>
         </Section>
 
-        {/* Times */}
-        <Section label="Call times">
-          <Row label={`Evening retro · ${formatTime12h(profile?.preferred_check_in_local_time)}`} hint="Tap to change" onPress={() => setPicker('retro')} />
-          <Row label={`Morning sync · ${formatTime12h(profile?.morning_sync_time)}`} hint="Tap to change" onPress={() => setPicker('morning')} />
-        </Section>
-
         {/* Avoidance goals */}
         <Section label="Avoidance habits">
           <Row
@@ -194,13 +178,6 @@ export default function Settings() {
         <Text style={styles.footerText}>Beckon v0.1 · beta</Text>
       </ScrollView>
 
-      <TimePickerSheet
-        visible={picker !== null}
-        title={picker === 'retro' ? 'Evening retro time' : 'Morning sync time'}
-        value={(picker === 'retro' ? profile?.preferred_check_in_local_time : profile?.morning_sync_time) ?? '07:00'}
-        onClose={() => setPicker(null)}
-        onSave={(t) => updateField(picker === 'retro' ? { preferred_check_in_local_time: t } : { morning_sync_time: t })}
-      />
     </SafeAreaView>
   );
 }
