@@ -65,6 +65,7 @@ export default function AppLayout() {
         />
         <Tabs.Screen name="avoidance" options={{ href: null }} />
         <Tabs.Screen name="goal-detail" options={{ href: null }} />
+        <Tabs.Screen name="add" options={{ href: null }} />
       </Tabs>
     </VoiceOverlayProvider>
   );

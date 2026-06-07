@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, Text, View, Pressable, ActivityIndicator, AppState, StyleSheet, Dimensions, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing } from 'react-native-reanimated';
 import { AmbientBackground } from '../../src/components/AmbientBackground';
-import { fetchTodayTimeline, TimelineSlot, fetchGoalsWithSchedules, GoalWithSchedules } from '../../src/services/goals';
+import { fetchTodayTimeline, TimelineSlot, fetchGoalsWithSchedules, GoalWithSchedules, slotDisplayName } from '../../src/services/goals';
 import { fetchRoutines, Routine } from '../../src/services/routines';
 import { computeVelocity } from '../../src/services/velocity';
 import { fetchProfile, updateProfile } from '../../src/services/profile';
@@ -143,6 +143,7 @@ export default function Home() {
           kind: 'goal',
           goalId: goal.id,
           goalTitle: goal.title,
+          label: sched.label,
           framework: goal.framework || 'atomic_habits',
           scheduleId: sched.id,
           time,
@@ -268,6 +269,13 @@ export default function Home() {
     });
     return () => sub.remove();
   }, [loadTimeline]);
+
+  // Refresh when returning to this tab (e.g. after adding from the Add screen)
+  useFocusEffect(
+    useCallback(() => {
+      loadTimeline();
+    }, [loadTimeline]),
+  );
 
   // Today's Date: e.g. "Wed, Jun 4"
   const todayDateStr = now.toLocaleDateString('en-US', {
@@ -572,6 +580,14 @@ export default function Home() {
           {/* Calendar Week Selector */}
           {renderDaySelector()}
 
+          {/* Timeline header + Add */}
+          <View style={styles.timelineHeaderRow}>
+            <Text style={styles.timelineHeaderLabel}>Schedule</Text>
+            <Pressable onPress={() => router.push('/(app)/add' as any)} style={styles.addBtnPill}>
+              <Text style={styles.addBtnPillText}>+ Add</Text>
+            </Pressable>
+          </View>
+
           {/* Timeline Strip */}
           <Animated.View style={animatedTimelineStyle}>
             {timeline.length > 0 ? (
@@ -638,7 +654,7 @@ export default function Home() {
                           isNext && styles.pillGoalNext,
                         ]}
                       >
-                        {slot.goalTitle}
+                        {slotDisplayName(slot)}
                       </Text>
                     </Pressable>
                   );
@@ -782,8 +798,11 @@ export default function Home() {
             <View style={styles.modalHandle} />
             {selectedSlot && (
               <>
-                <Text style={styles.modalTitle}>{selectedSlot.goalTitle}</Text>
-                
+                <Text style={styles.modalTitle}>{slotDisplayName(selectedSlot)}</Text>
+                {selectedSlot.label?.trim() && selectedSlot.kind === 'goal' && (
+                  <Text style={styles.modalParent}>in {selectedSlot.goalTitle}</Text>
+                )}
+
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Scheduled time</Text>
                   <Text style={styles.detailValue}>{selectedSlot.timeLabel}</Text>
@@ -848,7 +867,12 @@ export default function Home() {
                           selectedSlot.kind === 'kickoff' ? 'morning' :
                           selectedSlot.kind === 'cooldown' ? 'retro' :
                           selectedSlot.kind === 'routine' ? 'routine' : 'midday';
-                        router.push(`/call?goalId=${selectedSlot.goalId}&goalTitle=${encodeURIComponent(selectedSlot.goalTitle)}&type=${callType}`);
+                        // For a named slot, give the coach both the task and its parent goal.
+                        const callTitle =
+                          selectedSlot.kind === 'goal' && selectedSlot.label?.trim()
+                            ? `${selectedSlot.label.trim()} (${selectedSlot.goalTitle})`
+                            : selectedSlot.goalTitle;
+                        router.push(`/call?goalId=${selectedSlot.goalId}&goalTitle=${encodeURIComponent(callTitle)}&type=${callType}`);
                       }}
                     >
                       <Text style={styles.modalBtnTextPrimary}>🎙 Call Coach Now</Text>
@@ -1128,6 +1152,32 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(108, 93, 211, 0.05)',
     marginHorizontal: 24,
   },
+  timelineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginTop: 8,
+  },
+  timelineHeaderLabel: {
+    color: '#1E1B4B',
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: -0.2,
+  },
+  addBtnPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 99,
+    backgroundColor: 'rgba(108, 93, 211, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.25)',
+  },
+  addBtnPillText: {
+    color: '#6C5DD3',
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
   timelineScroll: {
     paddingVertical: 18,
     paddingHorizontal: 24,
@@ -1399,6 +1449,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 18,
     color: '#1E1B4B',
+    marginBottom: 8,
+  },
+  modalParent: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#6C5DD3',
+    marginTop: -4,
     marginBottom: 8,
   },
   modalDescription: {

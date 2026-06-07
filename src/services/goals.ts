@@ -21,11 +21,19 @@ export interface TimelineSlot {
   kind: 'goal' | 'routine' | 'kickoff' | 'cooldown';
   goalId: string;
   goalTitle: string;
+  /** Optional per-schedule name ("Lunch"). Display falls back to goalTitle. */
+  label?: string | null;
   framework: Goal['framework'];
   scheduleId: string;
   time: string;       // HH:MM local
   timeLabel: string;  // "6:00 AM"
   status: 'done' | 'active' | 'upcoming';
+}
+
+/** Display name for a slot: the per-schedule label if set, else the goal title. */
+export function slotDisplayName(slot: Pick<TimelineSlot, 'label' | 'goalTitle'>): string {
+  const l = slot.label?.trim();
+  return l ? l : slot.goalTitle;
 }
 
 /** Fetch all active goals with their schedules. */
@@ -89,6 +97,7 @@ export async function fetchTodayTimeline(): Promise<TimelineSlot[]> {
         kind: 'goal',
         goalId: goal.id,
         goalTitle: goal.title,
+        label: sched.label,
         framework: goal.framework,
         scheduleId: sched.id,
         time: `${hh.toString().padStart(2, '0')}:${displayM}`,
@@ -105,7 +114,7 @@ export async function fetchTodayTimeline(): Promise<TimelineSlot[]> {
 export async function createGoal(
   title: string,
   framework: Goal['framework'],
-  schedulesInput: { time: string; days: number[] }[] = [],
+  schedulesInput: { time: string; days: number[]; name?: string | null }[] = [],
 ): Promise<GoalWithSchedules> {
   const isBypass = typeof window !== 'undefined' && localStorage.getItem('bypass_auth') === 'true';
   if (isBypass) {
@@ -132,6 +141,7 @@ export async function createGoal(
          user_id: 'mock-user',
          scheduled_time: s.time,
          scheduled_days: s.days,
+         label: s.name?.trim() || null,
          active: true,
       };
       schedules.push(newSched);
@@ -170,6 +180,7 @@ export async function createGoal(
         user_id: user.id,
         scheduled_time: s.time,
         scheduled_days: s.days,
+        label: s.name?.trim() || null,
         active: true,
       } satisfies ScheduleInsert)
       .select()
@@ -211,7 +222,7 @@ export async function archiveGoal(goalId: string) {
 /** Update an existing schedule row (time / days / active). */
 export async function updateSchedule(
   scheduleId: string,
-  patch: { time?: string; days?: number[]; active?: boolean },
+  patch: { time?: string; days?: number[]; active?: boolean; label?: string | null },
 ): Promise<void> {
   const isBypass = typeof window !== 'undefined' && localStorage.getItem('bypass_auth') === 'true';
   if (isBypass) {
@@ -224,6 +235,7 @@ export async function updateSchedule(
         ...(patch.time !== undefined && { scheduled_time: patch.time }),
         ...(patch.days !== undefined && { scheduled_days: patch.days }),
         ...(patch.active !== undefined && { active: patch.active }),
+        ...(patch.label !== undefined && { label: patch.label }),
       };
     });
     localStorage.setItem('mock_schedules', JSON.stringify(updated));
@@ -235,6 +247,7 @@ export async function updateSchedule(
   if (patch.time !== undefined) dbPatch.scheduled_time = patch.time;
   if (patch.days !== undefined) dbPatch.scheduled_days = patch.days;
   if (patch.active !== undefined) dbPatch.active = patch.active;
+  if (patch.label !== undefined) dbPatch.label = patch.label;
 
   const { error } = await supabase
     .from('goal_schedules')
@@ -249,6 +262,7 @@ export async function addSchedule(
   goalId: string,
   time: string,
   days: number[],
+  label?: string | null,
 ): Promise<GoalSchedule> {
   const isBypass = typeof window !== 'undefined' && localStorage.getItem('bypass_auth') === 'true';
   if (isBypass) {
@@ -260,6 +274,7 @@ export async function addSchedule(
       user_id: 'mock-user',
       scheduled_time: time,
       scheduled_days: days,
+      label: label?.trim() || null,
       active: true,
     };
     schedules.push(newSched);
@@ -277,6 +292,7 @@ export async function addSchedule(
       user_id: user.id,
       scheduled_time: time,
       scheduled_days: days,
+      label: label?.trim() || null,
       active: true,
     } satisfies ScheduleInsert)
     .select()

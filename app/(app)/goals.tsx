@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { fetchGoalsWithSchedules, archiveGoal, GoalWithSchedules } from '../../src/services/goals';
 import { computeGoalMetrics, GoalMetrics } from '../../src/services/goalMetrics';
 import { fetchRoutines, archiveRoutine, Routine } from '../../src/services/routines';
@@ -107,6 +107,9 @@ export default function Goals() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Refresh when returning to this tab (e.g. after adding from the Add screen)
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
   const openNewRoutine = () => {
     setEditingRoutine(null);
     setRoutineSheetVisible(true);
@@ -190,9 +193,7 @@ export default function Goals() {
         </View>
         <Pressable
           onPress={() =>
-            tab === 'goals'
-              ? router.push('/(onboarding)/goals' as any)
-              : openNewRoutine()
+            router.push((tab === 'goals' ? '/(app)/add?mode=goal' : '/(app)/add?mode=routine') as any)
           }
           style={styles.addPill}
         >

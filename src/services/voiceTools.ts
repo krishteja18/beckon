@@ -66,10 +66,11 @@ export const VOICE_TOOL_DECLARATIONS: FnDecl[] = [
         framework: { type: 'STRING', description: 'Coaching framework. Defaults to user\'s profile default if omitted.', enum: ['atomic_habits', 'ikigai', 'deep_work'] },
         schedules: {
           type: 'ARRAY',
-          description: 'Optional initial schedule slots.',
+          description: 'Optional initial schedule slots. Give a slot a `name` when the goal has multiple distinct moments (e.g. goal "Nutrition & Diet" with slots named "Breakfast", "Lunch", "Snack"). Leave name empty for single-purpose goals like "Gym".',
           items: {
             type: 'OBJECT',
             properties: {
+              name: { type: 'STRING', description: 'Optional short label for THIS time slot, e.g. "Lunch". Omit for simple goals.' },
               time: TIME_PARAM,
               days: DAYS_PARAM,
             },
@@ -95,11 +96,12 @@ export const VOICE_TOOL_DECLARATIONS: FnDecl[] = [
   },
   {
     name: 'addSchedule',
-    description: 'Add an additional time slot to an existing goal. Use when user says "also at 6pm" for a goal that already exists.',
+    description: 'Add an additional time slot to an existing goal. Use when user says "also at 6pm" for a goal that already exists. Pass `name` when the new slot represents a distinct moment under the goal (e.g. "Dinner" under "Nutrition & Diet").',
     parameters: {
       type: 'OBJECT',
       properties: {
         goalId: { type: 'STRING', description: 'The goal id (use findEntities first if unsure).' },
+        name: { type: 'STRING', description: 'Optional short label for this time slot, e.g. "Dinner".' },
         time: TIME_PARAM,
         days: DAYS_PARAM,
       },
@@ -110,11 +112,12 @@ export const VOICE_TOOL_DECLARATIONS: FnDecl[] = [
   // ── UPDATE ─────────────────────────────────────────────────────────────────
   {
     name: 'updateSchedule',
-    description: 'Permanently change the time or days of an existing goal schedule (modifies goal_schedules). For a one-day "push it to 8pm today" use rescheduleToday instead.',
+    description: 'Permanently change the name, time, or days of an existing goal schedule (modifies goal_schedules). For a one-day "push it to 8pm today" use rescheduleToday instead.',
     parameters: {
       type: 'OBJECT',
       properties: {
         scheduleId: { type: 'STRING', description: 'The schedule_id (use findEntities to look up).' },
+        name: { type: 'STRING', description: 'Optional new label for this slot, e.g. "Lunch". Pass an empty string to clear it.' },
         time: { type: 'STRING', description: 'Optional new time in HH:MM.' },
         days: DAYS_PARAM,
       },
@@ -263,6 +266,7 @@ export async function dispatchToolCall(
         const schedules = Array.isArray(args.schedules) ? args.schedules.map((s: any) => ({
           time: normalizeTime(String(s.time)),
           days: normalizeDays(s.days) ?? [0, 1, 2, 3, 4, 5, 6],
+          name: s.name ? String(s.name).trim() : null,
         })) : [];
         const goal = await createGoal(title, framework, schedules);
         return { ok: true, message: `Goal "${title}" created.`, entityId: goal.id };
@@ -282,16 +286,18 @@ export async function dispatchToolCall(
         if (!goalId) return { ok: false, message: 'goalId is required.' };
         const time = normalizeTime(String(args.time));
         const days = normalizeDays(args.days) ?? [0, 1, 2, 3, 4, 5, 6];
-        const sched = await addSchedule(goalId, time, days);
-        return { ok: true, message: `Added ${time} to the schedule.`, entityId: sched.id };
+        const name = args.name ? String(args.name).trim() : null;
+        const sched = await addSchedule(goalId, time, days, name);
+        return { ok: true, message: `Added ${name ? `"${name}" at ` : ''}${time} to the schedule.`, entityId: sched.id };
       }
 
       case 'updateSchedule': {
         const scheduleId = String(args.scheduleId ?? '');
         if (!scheduleId) return { ok: false, message: 'scheduleId is required.' };
-        const patch: { time?: string; days?: number[] } = {};
+        const patch: { time?: string; days?: number[]; label?: string | null } = {};
         if (args.time) patch.time = normalizeTime(String(args.time));
         if (args.days) patch.days = normalizeDays(args.days);
+        if (args.name !== undefined) patch.label = String(args.name).trim() || null;
         await updateSchedule(scheduleId, patch);
         return { ok: true, message: 'Schedule updated.' };
       }
@@ -341,6 +347,7 @@ export async function dispatchToolCall(
             framework: g.framework,
             schedules: g.schedules.filter(s => s.active).map(s => ({
               scheduleId: s.id,
+              name: s.label ?? null,
               time: s.scheduled_time,
               days: s.scheduled_days,
             })),

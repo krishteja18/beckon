@@ -152,6 +152,7 @@ export type Database = {
           created_at: string
           goal_id: string
           id: string
+          label: string | null
           scheduled_days: number[]
           scheduled_time: string
           user_id: string
@@ -161,6 +162,7 @@ export type Database = {
           created_at?: string
           goal_id: string
           id?: string
+          label?: string | null
           scheduled_days?: number[]
           scheduled_time: string
           user_id: string
@@ -170,6 +172,7 @@ export type Database = {
           created_at?: string
           goal_id?: string
           id?: string
+          label?: string | null
           scheduled_days?: number[]
           scheduled_time?: string
           user_id?: string

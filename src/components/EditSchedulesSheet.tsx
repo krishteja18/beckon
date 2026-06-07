@@ -29,6 +29,7 @@ const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 interface DraftRow {
   /** Existing schedule id, or null if locally-added new row */
   id: string | null;
+  name: string;       // optional per-slot label e.g. "Lunch"
   hour: string;       // "1".."12"
   minute: string;     // "00".."59"
   period: 'AM' | 'PM';
@@ -38,6 +39,7 @@ interface DraftRow {
   origTime?: string;  // "HH:MM" 24h
   origDays?: number[];
   origActive?: boolean;
+  origName?: string;
   deleted?: boolean;
 }
 
@@ -45,8 +47,10 @@ function toDraft(s: GoalWithSchedules['schedules'][number]): DraftRow {
   const [hh, mm] = (s.scheduled_time as string).split(':').map(Number);
   const period: 'AM' | 'PM' = hh < 12 ? 'AM' : 'PM';
   const displayH = hh % 12 || 12;
+  const name = (s.label ?? '') as string;
   return {
     id: s.id,
+    name,
     hour: String(displayH),
     minute: mm.toString().padStart(2, '0'),
     period,
@@ -55,6 +59,7 @@ function toDraft(s: GoalWithSchedules['schedules'][number]): DraftRow {
     origTime: s.scheduled_time as string,
     origDays: [...s.scheduled_days],
     origActive: s.active,
+    origName: name,
   };
 }
 
@@ -121,6 +126,7 @@ export function EditSchedulesSheet({ visible, goal, onClose, onChanged }: Props)
       ...prev,
       {
         id: null,
+        name: '',
         hour: '8',
         minute: '00',
         period: 'AM',
@@ -166,18 +172,21 @@ export function EditSchedulesSheet({ visible, goal, onClose, onChanged }: Props)
           continue;
         }
         const t = draftTo24h(r)!;
+        const name = r.name.trim();
         if (r.id == null) {
-          await addSchedule(goal.id, t, r.days);
+          await addSchedule(goal.id, t, r.days, name || null);
           continue;
         }
         const timeChanged = t !== r.origTime;
         const daysChanged = !arraysEqual(r.days, r.origDays ?? []);
         const activeChanged = r.active !== r.origActive;
-        if (timeChanged || daysChanged || activeChanged) {
+        const nameChanged = name !== (r.origName ?? '').trim();
+        if (timeChanged || daysChanged || activeChanged || nameChanged) {
           await updateSchedule(r.id, {
             ...(timeChanged && { time: t }),
             ...(daysChanged && { days: r.days }),
             ...(activeChanged && { active: r.active }),
+            ...(nameChanged && { label: name || null }),
           });
         }
       }
@@ -214,6 +223,16 @@ export function EditSchedulesSheet({ visible, goal, onClose, onChanged }: Props)
                 if (row.deleted) return null;
                 return (
                   <View key={row.id ?? `new-${idx}`} style={styles.rowCard}>
+                    {/* Optional name (e.g. "Lunch") */}
+                    <TextInput
+                      style={styles.nameInput}
+                      value={row.name}
+                      onChangeText={t => updateField(idx, { name: t })}
+                      placeholder="Name (optional) — e.g. Lunch"
+                      placeholderTextColor="#9CA3AF"
+                      maxLength={40}
+                    />
+
                     {/* Time row */}
                     <View style={styles.timeRow}>
                       <TextInput
@@ -358,6 +377,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(108, 93, 211, 0.08)',
+  },
+  nameInput: {
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.16)',
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: '#1E1B4B',
+    marginBottom: 12,
   },
   timeRow: {
     flexDirection: 'row',
