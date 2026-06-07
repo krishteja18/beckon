@@ -17,8 +17,8 @@ export interface GoalWithSchedules extends Goal {
 }
 
 export interface TimelineSlot {
-  /** 'goal' for goal-schedule slots, 'routine' for standalone routines. */
-  kind: 'goal' | 'routine';
+  /** Slot origin: goal schedule, routine, or a daily anchor call. */
+  kind: 'goal' | 'routine' | 'kickoff' | 'cooldown';
   goalId: string;
   goalTitle: string;
   framework: Goal['framework'];

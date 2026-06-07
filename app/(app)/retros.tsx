@@ -42,7 +42,7 @@ export default function Retros() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Retros</Text>
+          <Text style={styles.title}>Recap</Text>
           <Text style={styles.subtitle}>Patterns your coach noticed.</Text>
         </View>
 

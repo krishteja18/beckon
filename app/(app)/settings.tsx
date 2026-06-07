@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert, TextInput, StyleSheet, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { fetchProfile, updateProfile } from '../../src/services/profile';
+import { fetchProfile, updateProfile, deleteAccount } from '../../src/services/profile';
 import { signOut } from '../../src/services/auth';
+import { TimePickerSheet } from '../../src/components/TimePickerSheet';
 import { Database } from '../../src/services/database.types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Intensity = Database['public']['Enums']['intensity_level'];
+type Framework = Database['public']['Enums']['framework_key'];
 
 const INTENSITY_OPTIONS: { value: Intensity; label: string }[] = [
   { value: 'gentle', label: 'Gentle' },
@@ -15,11 +17,26 @@ const INTENSITY_OPTIONS: { value: Intensity; label: string }[] = [
   { value: 'drill',  label: 'Drill' },
 ];
 
+const FRAMEWORK_OPTIONS: { value: Framework; label: string; desc: string }[] = [
+  { value: 'atomic_habits', label: 'Atomic Habits', desc: 'Small wins, identity, never miss twice' },
+  { value: 'ikigai',        label: 'Ikigai',        desc: 'Meaning and direction over streaks' },
+  { value: 'deep_work',     label: 'Deep Work',     desc: 'Focus blocks, output over busywork' },
+];
+
+function formatTime12h(t?: string | null): string {
+  if (!t) return '—';
+  const [hh, mm] = t.split(':').map(Number);
+  const period = hh < 12 ? 'AM' : 'PM';
+  const dH = hh % 12 || 12;
+  return `${dH}:${String(mm).padStart(2, '0')} ${period}`;
+}
+
 export default function Settings() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [picker, setPicker] = useState<null | 'retro' | 'morning'>(null);
 
   const load = async () => {
     try {
@@ -45,42 +62,61 @@ export default function Settings() {
     }
   };
 
+  const goWelcome = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      localStorage.removeItem('bypass_auth');
+    }
+    router.replace('/(onboarding)/welcome');
+  };
+
   const handleSignOut = () => {
     Alert.alert('Sign out?', 'You can sign back in anytime.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out', style: 'destructive',
-        onPress: async () => {
-          if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            localStorage.removeItem('bypass_auth');
-          }
-          await signOut();
-          router.replace('/(onboarding)/welcome');
-        },
+        onPress: async () => { await signOut(); goWelcome(); },
       },
     ]);
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, goals, routines and history. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: async () => {
+            try { await deleteAccount(); } catch (e: any) {
+              Alert.alert('Could not delete', e.message ?? 'Try again');
+              return;
+            }
+            goWelcome();
+          },
+        },
+      ],
+    );
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} className="flex-1 bg-bg items-center justify-center">
+      <SafeAreaView style={[styles.safeArea, styles.center]}>
         <ActivityIndicator color="#6C5DD3" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} className="flex-1 bg-bg">
+    <SafeAreaView style={styles.safeArea}>
       <View style={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16 }}>
-        <Text style={styles.headerText}>
-          Settings
-        </Text>
+        <Text style={styles.headerText}>Settings</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 24 }} showsVerticalScrollIndicator={false}>
 
         {/* Name */}
-        <Section label="Coach calls you">
+        <Section label="What the coach calls you">
           <NameField
             value={profile?.display_name ?? ''}
             onSave={(v) => updateField({ display_name: v })}
@@ -96,15 +132,9 @@ export default function Settings() {
                 <Pressable
                   key={opt.value}
                   onPress={() => updateField({ intensity: opt.value })}
-                  style={[
-                    styles.intensityCard,
-                    active ? styles.intensityCardActive : styles.intensityCardInactive,
-                  ]}
+                  style={[styles.intensityCard, active ? styles.cardActive : styles.cardInactive]}
                 >
-                  <Text style={[
-                    styles.intensityText,
-                    active ? styles.intensityTextActive : styles.intensityTextInactive,
-                  ]}>
+                  <Text style={[styles.intensityText, active ? styles.textActive : styles.textInactive]}>
                     {opt.label}
                   </Text>
                 </Pressable>
@@ -113,14 +143,36 @@ export default function Settings() {
           </View>
         </Section>
 
-        {/* Retro time */}
-        <Section label="Evening retro time">
-          <Row label={`${profile?.preferred_check_in_local_time ?? '21:30'}`} hint="Tap to change" onPress={() => {}} />
+        {/* Default framework */}
+        <Section label="Coaching framework">
+          <View style={{ gap: 8 }}>
+            {FRAMEWORK_OPTIONS.map(opt => {
+              const active = profile?.default_framework === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => updateField({ default_framework: opt.value })}
+                  style={[styles.fwCard, active ? styles.cardActive : styles.cardInactive]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.fwLabel, active ? styles.textActive : { color: '#1E1B4B' }]}>
+                      {opt.label}
+                    </Text>
+                    <Text style={styles.fwDesc}>{opt.desc}</Text>
+                  </View>
+                  <View style={[styles.radio, active && styles.radioActive]}>
+                    {active && <View style={styles.radioDot} />}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         </Section>
 
-        {/* Morning sync */}
-        <Section label="Morning call time">
-          <Row label={`${profile?.morning_sync_time ?? '07:00'}`} hint="Tap to change" onPress={() => {}} />
+        {/* Times */}
+        <Section label="Call times">
+          <Row label={`Evening retro · ${formatTime12h(profile?.preferred_check_in_local_time)}`} hint="Tap to change" onPress={() => setPicker('retro')} />
+          <Row label={`Morning sync · ${formatTime12h(profile?.morning_sync_time)}`} hint="Tap to change" onPress={() => setPicker('morning')} />
         </Section>
 
         {/* Avoidance goals */}
@@ -132,22 +184,23 @@ export default function Settings() {
           />
         </Section>
 
-
         {/* Account */}
         <Section label="Account">
-          <Row label="Sign out" hint="" onPress={handleSignOut} danger />
+          <Row label="Sign out" onPress={handleSignOut} danger />
+          <Row label="Delete account" hint="Removes your data" onPress={handleDelete} danger />
         </Section>
 
-        {saving && (
-          <Text style={styles.savingText}>
-            saving changes...
-          </Text>
-        )}
-
-        <Text style={styles.footerText}>
-          Showup v0.1 · beta
-        </Text>
+        {saving && <Text style={styles.savingText}>saving changes…</Text>}
+        <Text style={styles.footerText}>Beckon v0.1 · beta</Text>
       </ScrollView>
+
+      <TimePickerSheet
+        visible={picker !== null}
+        title={picker === 'retro' ? 'Evening retro time' : 'Morning sync time'}
+        value={(picker === 'retro' ? profile?.preferred_check_in_local_time : profile?.morning_sync_time) ?? '07:00'}
+        onClose={() => setPicker(null)}
+        onSave={(t) => updateField(picker === 'retro' ? { preferred_check_in_local_time: t } : { morning_sync_time: t })}
+      />
     </SafeAreaView>
   );
 }
@@ -155,9 +208,7 @@ export default function Settings() {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={{ gap: 10 }}>
-      <Text style={styles.sectionLabel}>
-        {label}
-      </Text>
+      <Text style={styles.sectionLabel}>{label}</Text>
       {children}
     </View>
   );
@@ -167,21 +218,11 @@ function Row({
   label, hint, onPress, danger = false,
 }: { label: string; hint?: string; onPress: () => void; danger?: boolean }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={styles.rowCard}
-    >
-      <Text style={[
-        styles.rowLabel,
-        danger ? { color: '#EF4444' } : { color: '#1E1B4B' }
-      ]}>
+    <Pressable onPress={onPress} style={styles.rowCard}>
+      <Text style={[styles.rowLabel, danger ? { color: '#EF4444' } : { color: '#1E1B4B' }]}>
         {label}
       </Text>
-      {hint && (
-        <Text style={styles.rowHint}>
-          {hint}
-        </Text>
-      )}
+      {hint ? <Text style={styles.rowHint}>{hint}</Text> : null}
     </Pressable>
   );
 }
@@ -189,120 +230,67 @@ function Row({
 function NameField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [name, setName] = useState(value);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <TextInput
-        value={name}
-        onChangeText={setName}
-        onBlur={() => name.trim() && name.trim() !== value && onSave(name.trim())}
-        placeholder="Your name"
-        placeholderTextColor="#9CA3AF"
-        style={styles.nameInput}
-      />
-    </View>
+    <TextInput
+      value={name}
+      onChangeText={setName}
+      onBlur={() => name.trim() && name.trim() !== value && onSave(name.trim())}
+      placeholder="Your name"
+      placeholderTextColor="#9CA3AF"
+      style={styles.nameInput}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: '#F4F6FB',
-  },
+  safeArea: { flex: 1, backgroundColor: '#F4F6FB' },
+  center: { alignItems: 'center', justifyContent: 'center' },
   headerText: {
-    color: '#1E1B4B',
-    fontSize: 28,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: -0.6,
+    color: '#1E1B4B', fontSize: 28, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.6,
   },
   sectionLabel: {
-    color: '#6B7280',
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    fontFamily: 'Inter_600SemiBold',
+    color: '#6B7280', fontSize: 11, letterSpacing: 1.2,
+    textTransform: 'uppercase', fontFamily: 'Inter_600SemiBold',
   },
   rowCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(108, 93, 211, 0.08)',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#6C5DD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
+    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(108, 93, 211, 0.08)',
+    backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    shadowColor: '#6C5DD3', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
   },
-  rowLabel: {
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-  },
-  rowHint: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  intensityCard: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    shadowColor: '#6C5DD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  intensityCardActive: {
-    borderColor: '#6C5DD3',
-    backgroundColor: '#ECEFFA',
-  },
-  intensityCardInactive: {
-    borderColor: 'rgba(108, 93, 211, 0.08)',
-    backgroundColor: '#FFFFFF',
-  },
-  intensityText: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  intensityTextActive: {
-    color: '#6C5DD3',
-  },
-  intensityTextInactive: {
-    color: '#6B7280',
-  },
-  nameInput: {
-    flex: 1,
-    color: '#1E1B4B',
-    fontSize: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(108, 93, 211, 0.08)',
-    backgroundColor: '#FFFFFF',
-    fontFamily: 'Inter_500Medium',
-    shadowColor: '#6C5DD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  savingText: {
-    color: '#6C5DD3',
-    fontSize: 11,
-    textAlign: 'center',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  footerText: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: 'Inter_400Regular',
-  },
-});
+  rowLabel: { fontSize: 15, fontFamily: 'Inter_500Medium' },
+  rowHint: { color: '#6B7280', fontSize: 12, fontFamily: 'Inter_400Regular' },
 
+  cardActive: { borderColor: '#6C5DD3', backgroundColor: '#ECEFFA' },
+  cardInactive: { borderColor: 'rgba(108, 93, 211, 0.08)', backgroundColor: '#FFFFFF' },
+  textActive: { color: '#6C5DD3' },
+  textInactive: { color: '#6B7280' },
+
+  intensityCard: {
+    flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center', borderWidth: 1,
+    shadowColor: '#6C5DD3', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
+  },
+  intensityText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+
+  fwCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1,
+    shadowColor: '#6C5DD3', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
+  },
+  fwLabel: { fontSize: 15, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.2 },
+  fwDesc: { color: '#6B7280', fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  radio: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 1.5,
+    borderColor: 'rgba(108, 93, 211, 0.3)', alignItems: 'center', justifyContent: 'center',
+  },
+  radioActive: { borderColor: '#6C5DD3' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#6C5DD3' },
+
+  nameInput: {
+    color: '#1E1B4B', fontSize: 15, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14,
+    borderWidth: 1, borderColor: 'rgba(108, 93, 211, 0.08)', backgroundColor: '#FFFFFF',
+    fontFamily: 'Inter_500Medium',
+    shadowColor: '#6C5DD3', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2,
+  },
+  savingText: { color: '#6C5DD3', fontSize: 11, textAlign: 'center', fontFamily: 'Inter_600SemiBold' },
+  footerText: { color: '#9CA3AF', fontSize: 11, textAlign: 'center', marginTop: 8, fontFamily: 'Inter_400Regular' },
+});

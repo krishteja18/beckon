@@ -57,7 +57,7 @@ export default function AppLayout() {
         />
         <Tabs.Screen
           name="retros"
-          options={{ title: 'Reflect', tabBarIcon: ({ color }) => <Icon name="reflect" color={color} /> }}
+          options={{ title: 'Recap', tabBarIcon: ({ color }) => <Icon name="reflect" color={color} /> }}
         />
         <Tabs.Screen
           name="settings"

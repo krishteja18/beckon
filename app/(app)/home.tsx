@@ -7,7 +7,8 @@ import { AmbientBackground } from '../../src/components/AmbientBackground';
 import { fetchTodayTimeline, TimelineSlot, fetchGoalsWithSchedules, GoalWithSchedules } from '../../src/services/goals';
 import { fetchRoutines, Routine } from '../../src/services/routines';
 import { computeVelocity } from '../../src/services/velocity';
-import { fetchProfile } from '../../src/services/profile';
+import { fetchProfile, updateProfile } from '../../src/services/profile';
+import { TimePickerSheet } from '../../src/components/TimePickerSheet';
 import { listAvoidanceGoals } from '../../src/services/avoidanceGoals';
 import { VoiceBall, VoiceState } from '../../src/components/VoiceBall';
 import { useVoiceOverlay } from '../../src/components/VoiceOverlay';
@@ -48,6 +49,9 @@ export default function Home() {
   const [goals, setGoals] = useState<GoalWithSchedules[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [defaultFramework, setDefaultFramework] = useState<string>('atomic_habits');
+  const [kickoffTime, setKickoffTime] = useState<string | null>(null);   // morning_sync_time
+  const [cooldownTime, setCooldownTime] = useState<string | null>(null); // preferred_check_in_local_time
+  const [editingAnchor, setEditingAnchor] = useState<null | 'kickoff' | 'cooldown'>(null);
 
   // Revamped dashboard states
   const [roughDayMode, setRoughDayMode] = useState(false);
@@ -104,6 +108,8 @@ export default function Home() {
     allGoals: GoalWithSchedules[],
     allRoutines: Routine[],
     fallbackFramework: string,
+    kickoffT: string | null,
+    cooldownT: string | null,
   ) => {
     const todayDow = new Date().getDay();
     const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
@@ -163,6 +169,52 @@ export default function Home() {
       });
     }
 
+    // ── Daily anchor calls ──────────────────────────────────────────────
+    const anchorFramework = fallbackFramework as TimelineSlot['framework'];
+
+    // Evening Cooldown — every day at the retro time.
+    if (cooldownT) {
+      const [hh, mm] = cooldownT.split(':').map(Number);
+      const { time, timeLabel } = formatTime(hh, mm);
+      slots.push({
+        kind: 'cooldown',
+        goalId: 'cooldown',
+        goalTitle: 'Evening Cooldown',
+        framework: anchorFramework,
+        scheduleId: 'cooldown',
+        time,
+        timeLabel,
+        status: computeStatus(hh * 60 + mm),
+      });
+    }
+
+    // Morning Kickoff — daily, UNLESS a goal is scheduled at/before it
+    // (intelligent merger: the earlier goal call absorbs the morning motivation).
+    if (kickoffT) {
+      const [hh, mm] = kickoffT.split(':').map(Number);
+      const kickoffMins = hh * 60 + mm;
+      const earliestGoalMins = slots
+        .filter(s => s.kind === 'goal')
+        .reduce((min, s) => {
+          const [gh, gm] = s.time.split(':').map(Number);
+          return Math.min(min, gh * 60 + gm);
+        }, Infinity);
+      const absorbed = earliestGoalMins <= kickoffMins;
+      if (!absorbed) {
+        const { time, timeLabel } = formatTime(hh, mm);
+        slots.push({
+          kind: 'kickoff',
+          goalId: 'kickoff',
+          goalTitle: 'Morning Kickoff',
+          framework: anchorFramework,
+          scheduleId: 'kickoff',
+          time,
+          timeLabel,
+          status: computeStatus(kickoffMins),
+        });
+      }
+    }
+
     return slots.sort((a, b) => a.time.localeCompare(b.time));
   }, []);
 
@@ -190,6 +242,8 @@ export default function Home() {
       if (profile) {
         if (profile.display_name) setProfileName(profile.display_name);
         if (profile.default_framework) setDefaultFramework(profile.default_framework);
+        setKickoffTime(profile.morning_sync_time ?? null);
+        setCooldownTime(profile.preferred_check_in_local_time ?? null);
       }
 
       if (avoidances) {
@@ -204,8 +258,8 @@ export default function Home() {
 
   // Recalculate timeline slots when day selection / goals / routines change
   useEffect(() => {
-    setTimeline(getTimelineForDay(selectedDay, goals, routines, defaultFramework));
-  }, [selectedDay, goals, routines, defaultFramework, getTimelineForDay]);
+    setTimeline(getTimelineForDay(selectedDay, goals, routines, defaultFramework, kickoffTime, cooldownTime));
+  }, [selectedDay, goals, routines, defaultFramework, kickoffTime, cooldownTime, getTimelineForDay]);
 
   useEffect(() => {
     loadTimeline();
@@ -430,7 +484,7 @@ export default function Home() {
               // All done for today state
               <View style={styles.heroCompletedContent}>
                 <Text style={styles.heroCompletedTitle}>All done for today</Text>
-                <Text style={styles.heroCompletedSub}>Evening retro coming up.</Text>
+                <Text style={styles.heroCompletedSub}>Nice work — see you at tomorrow's kickoff.</Text>
               </View>
             ) : nextCall ? (
               // Active / Upcoming call hero content
@@ -575,7 +629,7 @@ export default function Home() {
                       </View>
 
                       <Text
-                        numberOfLines={2}
+                        numberOfLines={1}
                         style={[
                           styles.pillGoalText,
                           isDone && styles.pillGoalDone,
@@ -586,15 +640,6 @@ export default function Home() {
                       >
                         {slot.goalTitle}
                       </Text>
-
-                      {slot.kind === 'routine' && (
-                        <Text style={[
-                          styles.pillRoutineTag,
-                          isActive && styles.pillRoutineTagActive,
-                        ]}>
-                          ROUTINE
-                        </Text>
-                      )}
                     </Pressable>
                   );
                 })}
@@ -754,16 +799,20 @@ export default function Home() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Session type</Text>
                   <Text style={styles.detailValue}>
-                    {selectedSlot.kind === 'routine' ? 'Routine Reminder' :
-                     selectedSlot.timeLabel.includes('AM') ? 'Morning Sync' :
-                     selectedSlot.timeLabel.includes('12:') || selectedSlot.timeLabel.includes('1:') || selectedSlot.timeLabel.includes('2:') ? 'Midday Check-in' : 'Evening Reflection'}
+                    {selectedSlot.kind === 'kickoff' ? 'Morning Kickoff' :
+                     selectedSlot.kind === 'cooldown' ? 'Evening Cooldown' :
+                     selectedSlot.kind === 'routine' ? 'Routine Reminder' :
+                     selectedSlot.timeLabel.includes('AM') ? 'Morning Check-in' :
+                     selectedSlot.timeLabel.includes('12:') || selectedSlot.timeLabel.includes('1:') || selectedSlot.timeLabel.includes('2:') ? 'Midday Check-in' : 'Evening Check-in'}
                   </Text>
                 </View>
 
                 <View style={styles.promptPreviewContainer}>
                   <Text style={styles.promptPreviewLabel}>Session Focus</Text>
                   <Text style={styles.promptPreviewText}>
-                    {selectedSlot.kind === 'routine' ? 'Quick reminder. Coach rings, names the routine, asks if you handled it. Under 15 seconds.' :
+                    {selectedSlot.kind === 'kickoff' ? 'Set the day: surface your top 1–3 commitments and a first action for the next couple of hours.' :
+                     selectedSlot.kind === 'cooldown' ? 'Wind down: log how the day went, celebrate the wins, and prime tomorrow.' :
+                     selectedSlot.kind === 'routine' ? 'Quick reminder. Coach rings, names the routine, asks if you handled it. Under 15 seconds.' :
                      selectedSlot.timeLabel.includes('AM') ? 'Plan your morning focus blocks, anticipate obstacles, and align with your core identity goals.' :
                      selectedSlot.timeLabel.includes('12:') || selectedSlot.timeLabel.includes('1:') || selectedSlot.timeLabel.includes('2:') ? 'Review your midday consistency, track current progress, and pivot tactics if hitting a hurdle.' :
                      'Reflect on today\'s wins and setbacks, celebrate micro-successes, and synthesize lessons for tomorrow.'}
@@ -775,7 +824,9 @@ export default function Home() {
                     style={[styles.modalBtn, styles.modalBtnSecondary]}
                     onPress={() => {
                       setShowDetailSheet(false);
-                      if (selectedSlot.kind === 'routine') {
+                      if (selectedSlot.kind === 'kickoff' || selectedSlot.kind === 'cooldown') {
+                        setEditingAnchor(selectedSlot.kind);
+                      } else if (selectedSlot.kind === 'routine') {
                         router.push('/(app)/goals' as any);
                       } else {
                         router.push({ pathname: '/(app)/goal-detail', params: { id: selectedSlot.goalId } } as any);
@@ -783,7 +834,8 @@ export default function Home() {
                     }}
                   >
                     <Text style={styles.modalBtnTextSecondary}>
-                      {selectedSlot.kind === 'routine' ? 'Edit Routine' : 'Edit Schedule'}
+                      {selectedSlot.kind === 'kickoff' || selectedSlot.kind === 'cooldown' ? 'Edit Time' :
+                       selectedSlot.kind === 'routine' ? 'Edit Routine' : 'Edit Schedule'}
                     </Text>
                   </Pressable>
 
@@ -792,7 +844,10 @@ export default function Home() {
                       style={[styles.modalBtn, styles.modalBtnPrimary]}
                       onPress={() => {
                         setShowDetailSheet(false);
-                        const callType = selectedSlot.kind === 'routine' ? 'routine' : 'midday';
+                        const callType =
+                          selectedSlot.kind === 'kickoff' ? 'morning' :
+                          selectedSlot.kind === 'cooldown' ? 'retro' :
+                          selectedSlot.kind === 'routine' ? 'routine' : 'midday';
                         router.push(`/call?goalId=${selectedSlot.goalId}&goalTitle=${encodeURIComponent(selectedSlot.goalTitle)}&type=${callType}`);
                       }}
                     >
@@ -805,6 +860,25 @@ export default function Home() {
           </View>
         </View>
       </Modal>
+
+      {/* In-place time editor for the daily anchor calls */}
+      <TimePickerSheet
+        visible={editingAnchor !== null}
+        title={editingAnchor === 'kickoff' ? 'Morning Kickoff time' : 'Evening Cooldown time'}
+        value={(editingAnchor === 'kickoff' ? kickoffTime : cooldownTime) ?? '07:00'}
+        onClose={() => setEditingAnchor(null)}
+        onSave={(t) => {
+          // Optimistic local update so the timeline reflects it immediately,
+          // then persist (best-effort; re-syncs on next foreground).
+          if (editingAnchor === 'kickoff') {
+            setKickoffTime(t);
+            updateProfile({ morning_sync_time: t }).catch(e => console.warn('[home] save kickoff', e));
+          } else if (editingAnchor === 'cooldown') {
+            setCooldownTime(t);
+            updateProfile({ preferred_check_in_local_time: t }).catch(e => console.warn('[home] save cooldown', e));
+          }
+        }}
+      />
 
     </AmbientBackground>
   );
@@ -1071,13 +1145,13 @@ const styles = StyleSheet.create({
     color: '#6C5DD3',
   },
   timelinePill: {
-    minWidth: 100,
+    minWidth: 104,
     borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 5,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     shadowColor: '#1E1B4B',
@@ -1092,10 +1166,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.01,
   },
   pillActive: {
-    backgroundColor: '#6C5DD3',
+    backgroundColor: '#F3F1FC',
     borderColor: '#6C5DD3',
     shadowColor: '#6C5DD3',
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.16,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 4,
@@ -1122,10 +1196,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   pillTimeDone: {
-    color: '#94A3B8',
+    color: '#6C5DD3',
   },
   pillTimeActive: {
-    color: '#E0E7FF',
+    color: '#6C5DD3',
   },
   pillTimeUpcoming: {
     color: '#6C5DD3',
@@ -1154,7 +1228,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   pillDotActiveLive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FB923C',
   },
   pillDotActiveNext: {
     backgroundColor: '#6C5DD3',
@@ -1169,11 +1243,10 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   pillGoalDone: {
-    color: '#94A3B8',
-    textDecorationLine: 'line-through',
+    color: '#1E1B4B',
   },
   pillGoalActive: {
-    color: '#FFFFFF',
+    color: '#1E1B4B',
     fontFamily: 'Inter_600SemiBold',
   },
   pillGoalUpcoming: {
@@ -1192,7 +1265,7 @@ const styles = StyleSheet.create({
     fontFamily: 'JetBrainsMono_500Medium',
   },
   pillRoutineTagActive: {
-    color: '#E0E7FF',
+    color: '#9CA3AF',
   },
   bottomActionZone: {
     paddingHorizontal: 20,

@@ -17,6 +17,7 @@ export async function fetchProfile(): Promise<Profile | null> {
       display_name: mockName,
       timezone: 'UTC',
       intensity: 'firm',
+      default_framework: 'atomic_habits',
       preferred_check_in_local_time: '21:30',
       morning_sync_time: '07:30',
       onboarding_completed_at: new Date().toISOString(),
