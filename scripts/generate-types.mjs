@@ -6,6 +6,7 @@
 //
 // Uses curl under the hood for the same corp-TLS reasons as apply-migration.mjs.
 
+import './_loadEnv.mjs';
 import { writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';

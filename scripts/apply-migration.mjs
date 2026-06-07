@@ -5,6 +5,7 @@
 // Uses curl under the hood (not node:fetch) because corp TLS proxies often
 // break Node's default cert store. Curl uses the OS cert store and just works.
 
+import './_loadEnv.mjs';
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';

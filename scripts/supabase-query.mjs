@@ -2,6 +2,7 @@
 // Usage: node scripts/supabase-query.mjs "select count(*) from frameworks"
 // Requires SUPABASE_PROJECT_REF and SUPABASE_ACCESS_TOKEN env vars.
 
+import './_loadEnv.mjs';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
