@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmbientBackground } from '../../src/components/AmbientBackground';
-import { fetchRetros, computeLiveRetro, RetroType, LiveRetro } from '../../src/services/retros';
+import { fetchRetros, ensureRetros, computeLiveRetro, RetroType, LiveRetro } from '../../src/services/retros';
 import { Database } from '../../src/services/database.types';
 
 type Retro = Database['public']['Tables']['retros']['Row'];
@@ -22,15 +22,18 @@ export default function Retros() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    Promise.all([
-      fetchRetros(tab).catch(() => [] as Retro[]),
-      computeLiveRetro(tab).catch(() => null),
-    ]).then(([stored, liveRetro]) => {
+    (async () => {
+      // Backfill the most recent completed period's recap (idempotent) before reading.
+      try { await ensureRetros(tab); } catch { /* non-fatal */ }
+      const [stored, liveRetro] = await Promise.all([
+        fetchRetros(tab).catch(() => [] as Retro[]),
+        computeLiveRetro(tab).catch(() => null),
+      ]);
       if (!active) return;
       setRetros(stored);
       setLive(liveRetro);
       setLoading(false);
-    });
+    })();
     return () => { active = false; };
   }, [tab]);
 
