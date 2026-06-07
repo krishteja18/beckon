@@ -1,68 +1,37 @@
 import { useEffect } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Svg, { Path, Polyline, Circle } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { VoiceBall } from '../../src/components/VoiceBall';
 import { VoiceOverlayProvider, useVoiceOverlay } from '../../src/components/VoiceOverlay';
 
+type IconName = 'today' | 'goals' | 'reflect' | 'settings';
+
+const TABS: { name: string; label: string; icon: IconName }[] = [
+  { name: 'home',     label: 'Today',    icon: 'today' },
+  { name: 'goals',    label: 'Goals',    icon: 'goals' },
+  { name: 'retros',   label: 'Recap',    icon: 'reflect' },
+  { name: 'settings', label: 'Settings', icon: 'settings' },
+];
+
 export default function AppLayout() {
-  const insets = useSafeAreaInsets();
   return (
     <VoiceOverlayProvider>
       <Tabs
+        tabBar={(props) => <FloatingTabBar {...props} />}
         screenOptions={{
           headerShown: false,
           sceneStyle: { backgroundColor: '#F4F6FB' },
-          tabBarStyle: {
-            backgroundColor: '#FFFFFF',
-            borderTopColor: 'rgba(108, 93, 211, 0.08)',
-            borderTopWidth: 1,
-            height: 64 + insets.bottom,
-            paddingTop: 8,
-            paddingBottom: insets.bottom,
-            shadowColor: '#6C5DD3',
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.04,
-            shadowRadius: 10,
-            elevation: 8,
-          },
-          tabBarActiveTintColor: '#6C5DD3',
-          tabBarInactiveTintColor: '#8A94A6',
-          tabBarLabelStyle: {
-            fontSize: 10,
-            fontFamily: 'Inter_600SemiBold',
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-            marginTop: 2,
-          },
         }}
       >
-        <Tabs.Screen
-          name="home"
-          options={{ title: 'Today', tabBarIcon: ({ color }) => <Icon name="today" color={color} /> }}
-        />
-        <Tabs.Screen
-          name="goals"
-          options={{ title: 'Goals', tabBarIcon: ({ color }) => <Icon name="goals" color={color} /> }}
-        />
-        {/* Center voice orb — opens the talk-to-coach overlay (no navigation) */}
-        <Tabs.Screen
-          name="coach"
-          options={{
-            title: '',
-            tabBarButton: () => <CenterOrbButton />,
-          }}
-        />
-        <Tabs.Screen
-          name="retros"
-          options={{ title: 'Recap', tabBarIcon: ({ color }) => <Icon name="reflect" color={color} /> }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{ title: 'Settings', tabBarIcon: ({ color }) => <Icon name="settings" color={color} /> }}
-        />
+        <Tabs.Screen name="home" />
+        <Tabs.Screen name="goals" />
+        <Tabs.Screen name="coach" options={{ href: null }} />
+        <Tabs.Screen name="retros" />
+        <Tabs.Screen name="settings" />
         <Tabs.Screen name="avoidance" options={{ href: null }} />
         <Tabs.Screen name="goal-detail" options={{ href: null }} />
         <Tabs.Screen name="add" options={{ href: null }} />
@@ -71,7 +40,95 @@ export default function AppLayout() {
   );
 }
 
-/** Raised, gently-pulsing orb in the center of the nav. Tap → talk to coach overlay. */
+/**
+ * Floating pill nav bar with smoothly-rounded ends and a concave groove in the
+ * centre that cradles the raised voice orb. The bar background is an SVG path so
+ * the notch is a true cutout, not just an overlapping button.
+ */
+function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  const SIDE = 16;             // margin from screen edges
+  const W = width - SIDE * 2;  // bar width
+  const H = 66;                // bar height
+  const CORNER = 28;           // rounded end radius
+  const NOTCH_HALF = 46;       // half-width of the centre groove opening
+  const NOTCH_DEPTH = 23;      // how deep the groove dips
+  const cx = W / 2;
+
+  // Rounded-rect with a concave dip centred on the top edge (clockwise from top-left).
+  const d = [
+    `M ${CORNER} 0`,
+    `L ${cx - NOTCH_HALF} 0`,
+    `C ${cx - NOTCH_HALF + 14} 0 ${cx - 28} ${NOTCH_DEPTH} ${cx} ${NOTCH_DEPTH}`,
+    `C ${cx + 28} ${NOTCH_DEPTH} ${cx + NOTCH_HALF - 14} 0 ${cx + NOTCH_HALF} 0`,
+    `L ${W - CORNER} 0`,
+    `Q ${W} 0 ${W} ${CORNER}`,
+    `L ${W} ${H - CORNER}`,
+    `Q ${W} ${H} ${W - CORNER} ${H}`,
+    `L ${CORNER} ${H}`,
+    `Q 0 ${H} 0 ${H - CORNER}`,
+    `L 0 ${CORNER}`,
+    `Q 0 0 ${CORNER} 0`,
+    'Z',
+  ].join(' ');
+
+  const resolved = TABS
+    .map(t => ({ ...t, index: state.routes.findIndex(r => r.name === t.name) }))
+    .filter(t => t.index >= 0);
+  const left = resolved.slice(0, 2);
+  const right = resolved.slice(2);
+
+  const renderTab = (t: typeof resolved[number]) => {
+    const route = state.routes[t.index];
+    const focused = state.index === t.index;
+    const color = focused ? '#FFFFFF' : 'rgba(255, 255, 255, 0.6)';
+    const onPress = () => {
+      const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+      if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+    };
+    return (
+      <Pressable key={t.name} onPress={onPress} style={styles.tabBtn} hitSlop={8}>
+        <Icon name={t.icon} color={color} />
+        <Text style={[styles.tabLabel, { color }]}>{t.label}</Text>
+      </Pressable>
+    );
+  };
+
+  const BOTTOM_GAP = 10;
+
+  return (
+    <View
+      style={[styles.container, { height: H + BOTTOM_GAP + insets.bottom, paddingBottom: insets.bottom + BOTTOM_GAP }]}
+      pointerEvents="box-none"
+    >
+      <View style={{ width: W, height: H }} pointerEvents="box-none">
+        {/* Shadow/background shaped by the SVG path */}
+        <View style={[styles.barShadow, { width: W, height: H }]}>
+          <Svg width={W} height={H}>
+            {/* solid brand-purple bar, like the primary buttons */}
+            <Path d={d} fill="#6C5DD3" stroke="rgba(76, 63, 173, 0.6)" strokeWidth={1} />
+          </Svg>
+        </View>
+
+        {/* Tab buttons sit over the bar, split around the centre groove */}
+        <View style={[styles.row, { width: W, height: H }]} pointerEvents="box-none">
+          <View style={styles.side}>{left.map(renderTab)}</View>
+          <View style={{ width: NOTCH_HALF * 2 }} />
+          <View style={styles.side}>{right.map(renderTab)}</View>
+        </View>
+
+        {/* Raised voice orb cradled in the groove */}
+        <View style={styles.orbWrap} pointerEvents="box-none">
+          <CenterOrbButton />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** Raised, gently-pulsing orb. Tap → talk-to-coach overlay (no navigation). */
 function CenterOrbButton() {
   const { open } = useVoiceOverlay();
   const scale = useSharedValue(1);
@@ -87,22 +144,17 @@ function CenterOrbButton() {
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <View style={styles.centerWrap} pointerEvents="box-none">
-      <Pressable onPress={() => open()} style={styles.centerBtn} hitSlop={10}>
-        <Animated.View style={animatedStyle}>
-          <VoiceBall state="idle" size={40} />
-        </Animated.View>
-      </Pressable>
-    </View>
+    <Pressable onPress={() => open()} style={styles.orbBtn} hitSlop={10}>
+      <Animated.View style={animatedStyle}>
+        <VoiceBall state="idle" size={44} />
+      </Animated.View>
+    </Pressable>
   );
 }
 
-/**
- * Tab icons rendered with react-native-svg (works on web AND native — raw <svg>
- * elements do not render on iOS/Android).
- */
-function Icon({ name, color }: { name: 'today' | 'goals' | 'reflect' | 'settings'; color: string }) {
-  const size = 20;
+/** Tab icons via react-native-svg (raw <svg> elements don't render on native). */
+function Icon({ name, color }: { name: IconName; color: string }) {
+  const size = 22;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -134,22 +186,59 @@ function Icon({ name, color }: { name: 'today' | 'goals' | 'reflect' | 'settings
 }
 
 const styles = StyleSheet.create({
-  centerWrap: {
-    flex: 1,
+  container: {
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    backgroundColor: '#F4F6FB', // app bg — kills any dark showing around/below the bar
   },
-  centerBtn: {
-    marginBottom: 12,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  barShadow: {
+    // No native shadow: a rectangular box-shadow / elevation doesn't follow the
+    // rounded + notched SVG shape, so it leaves square corners and a color halo
+    // above/below the bar. Depth comes from the path's edge stroke instead.
+  },
+  row: {
+    position: 'absolute',
+    top: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  side: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginTop: 3,
+  },
+  orbWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: -20,
+    alignItems: 'center',
+  },
+  orbBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#6C5DD3',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 10,
   },
