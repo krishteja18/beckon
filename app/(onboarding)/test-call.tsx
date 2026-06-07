@@ -19,31 +19,31 @@ function format24hTo12h(time24: string): string {
 }
 
 function getFrameworkLabel(key: string): string {
-  if (key === 'atomic_habits') return 'Atomic Habits ðŸ“š';
-  if (key === 'ikigai') return 'Ikigai ðŸƒ';
-  if (key === 'deep_work') return 'Deep Work ðŸ§ ';
+  if (key === 'atomic_habits') return 'Atomic Habits 📚';
+  if (key === 'ikigai') return 'Ikigai 🍃';
+  if (key === 'deep_work') return 'Deep Work 🧠';
   return key;
 }
 
 function getIntensityLabel(key: string): string {
-  if (key === 'gentle') return 'Gentle â˜•';
-  if (key === 'firm') return 'Firm ðŸ”¥';
-  if (key === 'drill') return 'Drill âš¡';
+  if (key === 'gentle') return 'Gentle ☕';
+  if (key === 'firm') return 'Firm 🔥';
+  if (key === 'drill') return 'Drill ⚡';
   return key;
 }
 
 function getGoalEmoji(title: string): string {
   const t = title.toLowerCase();
-  if (t.includes('deep work') || t.includes('work') || t.includes('focus')) return 'ðŸ§ ';
-  if (t.includes('morning') || t.includes('routine')) return 'ðŸŒ…';
-  if (t.includes('screen') || t.includes('detox') || t.includes('phone')) return 'ðŸ“µ';
-  if (t.includes('consistency') || t.includes('streak')) return 'ðŸ”¥';
-  if (t.includes('sleep') || t.includes('bed')) return 'ðŸŒ™';
-  if (t.includes('mindfulness') || t.includes('meditation') || t.includes('yoga') || t.includes('zen')) return 'ðŸ§˜';
-  if (t.includes('fitness') || t.includes('gym') || t.includes('workout') || t.includes('sport') || t.includes('run')) return 'ðŸ‹ï¸';
-  if (t.includes('beauty') || t.includes('skin') || t.includes('glow')) return 'âœ¨';
-  if (t.includes('nutrition') || t.includes('diet') || t.includes('eat') || t.includes('food') || t.includes('vegan') || t.includes('water')) return 'ðŸ¥‘';
-  return 'ðŸŽ¯';
+  if (t.includes('deep work') || t.includes('work') || t.includes('focus')) return '🧠';
+  if (t.includes('morning') || t.includes('routine')) return '🌅';
+  if (t.includes('screen') || t.includes('detox') || t.includes('phone')) return '📵';
+  if (t.includes('consistency') || t.includes('streak')) return '🔥';
+  if (t.includes('sleep') || t.includes('bed')) return '🌙';
+  if (t.includes('mindfulness') || t.includes('meditation') || t.includes('yoga') || t.includes('zen')) return '🧘';
+  if (t.includes('fitness') || t.includes('gym') || t.includes('workout') || t.includes('sport') || t.includes('run')) return '🏋️';
+  if (t.includes('beauty') || t.includes('skin') || t.includes('glow')) return '✨';
+  if (t.includes('nutrition') || t.includes('diet') || t.includes('eat') || t.includes('food') || t.includes('vegan') || t.includes('water')) return '🥑';
+  return '🎯';
 }
 
 // Time Picker Widget Helpers
@@ -160,7 +160,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–²</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▲</Text>
           </Pressable>
           <View style={styles.digitCard}>
             <Text style={styles.digitText}>{hour.toString().padStart(2, '0')}</Text>
@@ -170,7 +170,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–¼</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▼</Text>
           </Pressable>
           <Text style={styles.digitLabel}>HOURS</Text>
         </View>
@@ -187,7 +187,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–²</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▲</Text>
           </Pressable>
           <View style={styles.digitCard}>
             <Text style={styles.digitText}>{minute.toString().padStart(2, '0')}</Text>
@@ -197,7 +197,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–¼</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▼</Text>
           </Pressable>
           <Text style={styles.digitLabel}>MINUTES</Text>
         </View>
@@ -403,23 +403,23 @@ export default function TestCallScreen() {
     // Extract time
     const time = extractTimeFromString(clean);
     if (!time) {
-      setVoiceFeedback(`âŒ Could not understand the time in: "${input}". Try "6:30 AM" or "9:00 PM".`);
+      setVoiceFeedback(`❌ Could not understand the time in: "${input}". Try "6:30 AM" or "9:00 PM".`);
       return;
     }
     
     // Match target
-    if (clean.includes('morning') || clean.includes('ignition') || clean.includes('wakeup') || clean.includes('wake up') || clean.includes('am check-in')) {
+    if (clean.includes('morning') || clean.includes('kickoff') || clean.includes('ignition') || clean.includes('wakeup') || clean.includes('wake up') || clean.includes('am check-in')) {
       setMorningSyncTime(time);
       onboarding.set({ morningSyncTime: time, scheduleTimes: [time] });
-      setVoiceFeedback(`âœ… Moved Morning Ignition to ${format24hTo12h(time)}`);
+      setVoiceFeedback(`✅ Moved Morning Kickoff to ${format24hTo12h(time)}`);
       setVoiceText('');
       return;
     }
-    
-    if (clean.includes('evening') || clean.includes('retro') || clean.includes('reflection') || clean.includes('bedtime') || clean.includes('bed time') || clean.includes('pm check-in')) {
+
+    if (clean.includes('evening') || clean.includes('cooldown') || clean.includes('cool down') || clean.includes('retro') || clean.includes('reflection') || clean.includes('bedtime') || clean.includes('bed time') || clean.includes('pm check-in')) {
       setRetroTime(time);
       onboarding.set({ retroTime: time });
-      setVoiceFeedback(`âœ… Moved Evening Retrospective to ${format24hTo12h(time)}`);
+      setVoiceFeedback(`✅ Moved Evening Cooldown to ${format24hTo12h(time)}`);
       setVoiceText('');
       return;
     }
@@ -457,10 +457,10 @@ export default function TestCallScreen() {
       };
       setGoals(updatedGoals);
       onboarding.set({ goals: updatedGoals });
-      setVoiceFeedback(`âœ… Scheduled "${goals[matchedGoalIndex].title}" for ${format24hTo12h(time)}`);
+      setVoiceFeedback(`✅ Scheduled "${goals[matchedGoalIndex].title}" for ${format24hTo12h(time)}`);
       setVoiceText('');
     } else {
-      setVoiceFeedback(`âŒ Found time ${format24hTo12h(time)}, but couldn't identify the goal. Try "Move ${goals[0]?.title || 'Gym'} to 7:00 AM".`);
+      setVoiceFeedback(`❌ Found time ${format24hTo12h(time)}, but couldn't identify the goal. Try "Move ${goals[0]?.title || 'Gym'} to 7:00 AM".`);
     }
   };
 
@@ -479,7 +479,7 @@ export default function TestCallScreen() {
       }
       
       if (!ShowupAlarmMod) {
-        addLog('âš ï¸ ShowupAlarm native module is not active/available on this platform (Simulating for debug).');
+        addLog('⚠️ ShowupAlarm native module is not active/available on this platform (Simulating for debug).');
         // Simulated success run
         addLog('Mock: Checking exact alarm permission...');
         await new Promise(r => setTimeout(r, 400));
@@ -490,7 +490,7 @@ export default function TestCallScreen() {
         addLog('Mock: Alarm registered inside OS scheduling list.');
         addLog('Mock: Listening to alarm-fired events...');
         await new Promise(r => setTimeout(r, 2000));
-        addLog('ðŸ”” Mock Event Fired: goal "Morning Workout" triggered call voice intent!');
+        addLog('🔔 Mock Event Fired: goal "Morning Workout" triggered call voice intent!');
         addLog('Mock: Clean-up: cancelling mock alarm.');
         return;
       }
@@ -522,7 +522,7 @@ export default function TestCallScreen() {
 
       addLog('Subscribing to ShowupAlarm onAlarmFired event emitter...');
       const subscription = ShowupAlarmMod.onAlarmFired((event: any) => {
-        addLog(`ðŸ”” NATIVE EVENT CAPTURED: Alarm "${event.alarmId}" fired for goal "${event.goalTitle}"!`);
+        addLog(`🔔 NATIVE EVENT CAPTURED: Alarm "${event.alarmId}" fired for goal "${event.goalTitle}"!`);
         subscription.remove();
       });
 
@@ -535,7 +535,7 @@ export default function TestCallScreen() {
       }, 5000);
 
     } catch (e: any) {
-      addLog(`âŒ Diagnostics failed: ${e.message ?? e}`);
+      addLog(`❌ Diagnostics failed: ${e.message ?? e}`);
     }
   };
 
@@ -543,10 +543,10 @@ export default function TestCallScreen() {
   const timelineEvents: TimelineEvent[] = [
     {
       id: 'morning',
-      title: 'Morning Ignition',
+      title: 'Morning Kickoff',
       time: morningSyncTime,
       desc: 'Plan priorities & awaken mental energy',
-      emoji: 'ðŸŒ…',
+      emoji: '🌅',
       color: '#FB923C',
       type: 'morning'
     },
@@ -562,10 +562,10 @@ export default function TestCallScreen() {
     })),
     {
       id: 'evening',
-      title: 'Evening Retrospective',
+      title: 'Evening Cooldown',
       time: retroTime,
       desc: 'Reflect on wins, log stats & lock in sleep',
-      emoji: 'ðŸŒ™',
+      emoji: '🌙',
       color: '#6C5DD3',
       type: 'evening'
     }
@@ -585,7 +585,7 @@ export default function TestCallScreen() {
     <OnboardingFrame
       step={8}
       totalSteps={8}
-      eyebrow="Step 8 Â· All set!"
+      eyebrow="Step 8 · All set!"
       title="Ready to show up?"
       subtitle="Your daily coach is ready. Try a quick test call to see how it works, or finish setting up."
       primary={{
@@ -615,7 +615,7 @@ export default function TestCallScreen() {
             {/* Header row: Title + Intensity Badge */}
             <View style={styles.plannerHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.blueprintHeaderTitle}>ðŸ“… YOUR SETUP BLUEPRINT</Text>
+                <Text style={styles.blueprintHeaderTitle}>📅 YOUR SETUP BLUEPRINT</Text>
                 <Text style={styles.blueprintHeaderSub}>Coached plan for {name}</Text>
               </View>
               <View style={[
@@ -659,7 +659,7 @@ export default function TestCallScreen() {
             {/* Voice Command Simulated Input Section */}
             <View style={styles.voiceSection}>
               <View style={styles.voiceHeader}>
-                <Text style={styles.voiceTitle}>ðŸŽ™ï¸ ADJUST WITH VOICE OR TEXT</Text>
+                <Text style={styles.voiceTitle}>🎙️ ADJUST WITH VOICE OR TEXT</Text>
                 <Pressable
                   onPress={() => setShowVoiceInput(!showVoiceInput)}
                   style={({ pressed }) => [
@@ -668,7 +668,7 @@ export default function TestCallScreen() {
                     pressed && { opacity: 0.8 }
                   ]}
                 >
-                  <Text style={styles.micIconText}>ðŸŽ¤</Text>
+                  <Text style={styles.micIconText}>🎤</Text>
                 </Pressable>
               </View>
               
@@ -696,7 +696,7 @@ export default function TestCallScreen() {
 
                   {/* Canned suggestions list */}
                   <View style={styles.suggestionsContainer}>
-                    <Text style={styles.suggestionsTitle}>ðŸ’¡ Quick Actions:</Text>
+                    <Text style={styles.suggestionsTitle}>💡 Quick Actions:</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionsScroll}>
                       <Pressable
                         onPress={() => processVoiceCommand(`Move ${goals[0]?.title || 'Gym'} to 6:30 AM`)}
@@ -705,16 +705,16 @@ export default function TestCallScreen() {
                         <Text style={styles.suggestionTagText}>"Move {goals[0]?.title || 'Gym'} to 6:30 AM"</Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => processVoiceCommand('Change morning sync to 8:00 AM')}
+                        onPress={() => processVoiceCommand('Change Morning Kickoff to 8:00 AM')}
                         style={({ pressed }) => [styles.suggestionTag, pressed && { opacity: 0.8 }]}
                       >
-                        <Text style={styles.suggestionTagText}>"Change morning to 8:00 AM"</Text>
+                        <Text style={styles.suggestionTagText}>"Change kickoff to 8:00 AM"</Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => processVoiceCommand('Move evening retro to 10:00 PM')}
+                        onPress={() => processVoiceCommand('Move Evening Cooldown to 10:00 PM')}
                         style={({ pressed }) => [styles.suggestionTag, pressed && { opacity: 0.8 }]}
                       >
-                        <Text style={styles.suggestionTagText}>"Move retro to 10:00 PM"</Text>
+                        <Text style={styles.suggestionTagText}>"Move cooldown to 10:00 PM"</Text>
                       </Pressable>
                     </ScrollView>
                   </View>
@@ -733,7 +733,7 @@ export default function TestCallScreen() {
             {/* Timeline */}
             <Text style={[styles.goalsSectionTitle, { marginBottom: 12 }]}>Interactive Timeline Planner</Text>
             <Text style={{ fontSize: 10.5, fontFamily: 'Inter_400Regular', color: '#8A94A6', marginBottom: 8 }}>
-              ðŸ’¡ Tap slots in the summary timeline to adjust times manually.
+              💡 Tap slots in the summary timeline to adjust times manually.
             </Text>
             <View style={styles.timelineContainer}>
               {timelineEvents.map((ev, index) => {
@@ -795,8 +795,8 @@ export default function TestCallScreen() {
               onPress={() => setShowDiagnostics(!showDiagnostics)}
               style={styles.diagnosticsHeader}
             >
-              <Text style={styles.diagnosticsTitle}>âš™ï¸ NATIVE ALARM DIAGNOSTICS</Text>
-              <Text style={styles.diagnosticsChevron}>{showDiagnostics ? 'â–²' : 'â–¼'}</Text>
+              <Text style={styles.diagnosticsTitle}>⚙️ NATIVE ALARM DIAGNOSTICS</Text>
+              <Text style={styles.diagnosticsChevron}>{showDiagnostics ? '▲' : '▼'}</Text>
             </Pressable>
             
             {showDiagnostics && (

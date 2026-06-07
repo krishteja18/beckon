@@ -9,9 +9,12 @@ interface Draft {
   hour: string;
   minute: string;
   period: 'AM' | 'PM';
+  days: number[]; // 0=Sun .. 6=Sat
 }
 
 const SUGGESTIONS = ['Medication', 'Vitamins', 'Drink water', 'Stretch'];
+const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
 
 function to24h(d: Draft): string | null {
   const h = parseInt(d.hour, 10);
@@ -30,7 +33,7 @@ export default function OnboardingRoutines() {
   const addDraft = (title = '') => {
     setDrafts(prev => [
       ...prev,
-      { title, hour: '8', minute: '00', period: 'AM' },
+      { title, hour: '8', minute: '00', period: 'AM', days: [...EVERY_DAY] },
     ]);
   };
 
@@ -46,13 +49,24 @@ export default function OnboardingRoutines() {
     });
   };
 
+  const toggleDay = (idx: number, day: number) => {
+    setDrafts(prev => {
+      const copy = [...prev];
+      const days = copy[idx].days.includes(day)
+        ? copy[idx].days.filter(x => x !== day)
+        : [...copy[idx].days, day].sort();
+      copy[idx] = { ...copy[idx], days };
+      return copy;
+    });
+  };
+
   const handleSkip = () => {
     onboarding.set({ routines: [] });
     router.push('/(onboarding)/permissions');
   };
 
   const handleContinue = () => {
-    const cleaned: { title: string; time: string }[] = [];
+    const cleaned: { title: string; time: string; days: number[] }[] = [];
     for (const d of drafts) {
       if (!d.title.trim()) continue;
       const t = to24h(d);
@@ -60,7 +74,11 @@ export default function OnboardingRoutines() {
         Alert.alert('Invalid time', `Check the time for "${d.title}".`);
         return;
       }
-      cleaned.push({ title: d.title.trim(), time: t });
+      if (d.days.length === 0) {
+        Alert.alert('Pick at least one day', `Choose which days "${d.title}" should ring.`);
+        return;
+      }
+      cleaned.push({ title: d.title.trim(), time: t, days: d.days });
     }
     onboarding.set({ routines: cleaned });
     router.push('/(onboarding)/permissions');
@@ -122,6 +140,33 @@ export default function OnboardingRoutines() {
                 <Text style={styles.removeText}>Remove</Text>
               </Pressable>
             </View>
+
+            {/* Day-of-week selector */}
+            <View style={styles.daysRow}>
+              {DAY_LETTERS.map((letter, di) => {
+                const on = d.days.includes(di);
+                return (
+                  <Pressable
+                    key={di}
+                    onPress={() => toggleDay(idx, di)}
+                    style={[styles.dayChip, on && styles.dayChipOn]}
+                  >
+                    <Text style={[styles.dayChipText, on && styles.dayChipTextOn]}>{letter}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.presetRow}>
+              <Pressable onPress={() => updateDraft(idx, { days: [...EVERY_DAY] })} style={styles.presetChip}>
+                <Text style={styles.presetText}>Every day</Text>
+              </Pressable>
+              <Pressable onPress={() => updateDraft(idx, { days: [1, 2, 3, 4, 5] })} style={styles.presetChip}>
+                <Text style={styles.presetText}>Weekdays</Text>
+              </Pressable>
+              <Pressable onPress={() => updateDraft(idx, { days: [0, 6] })} style={styles.presetChip}>
+                <Text style={styles.presetText}>Weekends</Text>
+              </Pressable>
+            </View>
           </View>
         ))}
 
@@ -143,7 +188,7 @@ export default function OnboardingRoutines() {
         )}
 
         <Text style={styles.helperText}>
-          Routines ring every day by default. You can change days later from the Routines tab.
+          Pick the days each reminder should ring. You can change these later in the Routines tab.
         </Text>
       </ScrollView>
     </OnboardingFrame>
@@ -216,6 +261,43 @@ const styles = StyleSheet.create({
   removeText: {
     color: '#F43F5E',
     fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+  },
+  daysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+    marginTop: 12,
+  },
+  dayChip: {
+    flex: 1,
+    height: 34,
+    borderRadius: 9,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayChipOn: { backgroundColor: '#6C5DD3', borderColor: '#6C5DD3' },
+  dayChipText: { color: '#6B7280', fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  dayChipTextOn: { color: '#FFFFFF' },
+  presetRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+  },
+  presetChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 99,
+    backgroundColor: 'rgba(108, 93, 211, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.12)',
+  },
+  presetText: {
+    color: '#6C5DD3',
+    fontSize: 11,
     fontFamily: 'Inter_500Medium',
   },
   addBtn: {

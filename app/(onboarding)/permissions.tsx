@@ -15,7 +15,7 @@ interface PermissionItem {
 
 const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
   { 
-    icon: 'ðŸŽ™', 
+    icon: '🎙️', 
     title: 'Microphone', 
     sub: 'Allows you to speak and talk with your coach.', 
     color: '#38BDF8', // Cyan pastels
@@ -23,7 +23,7 @@ const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
     action: 'mic',
   },
   { 
-    icon: 'â°', 
+    icon: '⏰', 
     title: 'Exact alarms', 
     sub: 'Ensures your daily calls arrive precisely on time.', 
     color: '#6C5DD3', // Brand purple
@@ -31,7 +31,7 @@ const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
     action: 'alarms',
   },
   { 
-    icon: 'ðŸ””', 
+    icon: '🔔', 
     title: 'Notifications', 
     sub: 'Lets you know when your coach is calling.', 
     color: '#38BDF8', 
@@ -39,7 +39,7 @@ const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
     action: 'notifications',
   },
   { 
-    icon: 'ðŸ”‹', 
+    icon: '🔋', 
     title: 'Battery exempt', 
     sub: 'Keeps the call connected when your screen goes dark.', 
     color: '#6C5DD3', 
@@ -48,7 +48,7 @@ const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
   },
 ] : [
   { 
-    icon: 'ðŸŽ™', 
+    icon: '🎙️', 
     title: 'Microphone', 
     sub: 'Allows you to speak and talk with your coach.', 
     color: '#38BDF8',
@@ -56,7 +56,7 @@ const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
     action: 'mic'
   },
   { 
-    icon: 'ðŸ“ž', 
+    icon: '📞', 
     title: 'CallKit & PushKit', 
     sub: 'Wakes up your phone for incoming calls even when locked.', 
     color: '#6C5DD3',
@@ -64,7 +64,7 @@ const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
     action: 'callkit'
   },
   { 
-    icon: 'ðŸ””', 
+    icon: '🔔', 
     title: 'Notifications', 
     sub: 'Lets you know when your coach is calling.', 
     color: '#38BDF8', 
@@ -72,7 +72,7 @@ const ITEMS: PermissionItem[] = Platform.OS === 'android' ? [
     action: 'notifications'
   },
   { 
-    icon: 'ðŸ—£', 
+    icon: '🗣️', 
     title: 'Siri Call Announce', 
     sub: 'Siri will read notifications and let you say "Answer" hands-free.', 
     color: '#6C5DD3', 

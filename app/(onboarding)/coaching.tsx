@@ -27,7 +27,7 @@ const INTENSITIES: IntensityOption[] = [
     value: 'gentle',
     title: 'Gentle',
     subtitle: 'Nurturing & kind',
-    example: '"No pressure â€” let\'s aim for just one small win."',
+    example: '"No pressure — let\'s aim for just one small win."',
     glowColor: '#38BDF8', // Sky Blue
   },
   {

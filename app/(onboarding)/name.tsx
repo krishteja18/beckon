@@ -22,7 +22,7 @@ export default function Name() {
       totalSteps={8}
       eyebrow="Step 2"
       title="What should your coach call you?"
-      subtitle="First name is fine â€” this is what you'll hear spoken on every call."
+      subtitle="First name is fine — this is what you'll hear spoken on every call."
       primary={{
         label: 'Continue',
         onPress: handleContinue,

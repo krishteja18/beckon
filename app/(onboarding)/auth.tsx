@@ -190,7 +190,7 @@ export default function Auth() {
             style={styles.bypassBtn}
           >
             <Text style={styles.bypassBtnText}>
-              âš¡ BYPASS AUTH (DEVELOPER GUEST MODE)
+              ⚡ BYPASS AUTH (DEVELOPER GUEST MODE)
             </Text>
           </Pressable>
         )}

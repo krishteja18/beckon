@@ -15,8 +15,8 @@ export interface OnboardingState {
   intensity: Intensity | null;
   framework: Framework | null;
   goals: { title: string; scheduledTime?: string }[];
-  /** Optional routines captured during onboarding. Default days = every day. */
-  routines: { title: string; time: string }[];
+  /** Optional routines captured during onboarding. days: 0=Sun..6=Sat. */
+  routines: { title: string; time: string; days: number[] }[];
   scheduleTimes: string[];      // ['06:00', '18:00']
   retroTime: string | null;     // '21:30'
   morningSyncTime: string;      // default '07:00'

@@ -48,13 +48,13 @@ export async function commitOnboarding(state: OnboardingState): Promise<void> {
     localStorage.setItem('mock_goals', JSON.stringify(goals));
     localStorage.setItem('mock_schedules', JSON.stringify(schedules));
 
-    // Save routines (optional, defaults to every day)
+    // Save routines (optional — per-routine days, defaults to every day)
     const routines = (state.routines ?? []).filter(r => r.title.trim()).map(r => ({
       id: 'mock-routine-' + Math.random().toString(36).substr(2, 9),
       user_id: 'mock-user',
       title: r.title.trim(),
       scheduled_time: r.time + ':00',
-      scheduled_days: allDays,
+      scheduled_days: r.days?.length ? r.days : allDays,
       active: true,
       created_at: new Date().toISOString(),
     }));
@@ -122,7 +122,7 @@ export async function commitOnboarding(state: OnboardingState): Promise<void> {
     }
   }
 
-  // 2b. Create routines (optional — defaults to every day)
+  // 2b. Create routines (optional — per-routine days, defaults to every day)
   for (const r of state.routines ?? []) {
     if (!r.title.trim()) continue;
     const { error: rErr } = await supabase
@@ -131,7 +131,7 @@ export async function commitOnboarding(state: OnboardingState): Promise<void> {
         user_id: user.id,
         title: r.title.trim(),
         scheduled_time: r.time + ':00',
-        scheduled_days: allDays,
+        scheduled_days: r.days?.length ? r.days : allDays,
         active: true,
       });
     if (rErr) throw rErr;

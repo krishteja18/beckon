@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { OnboardingFrame } from '../../src/components/OnboardingFrame';
@@ -12,16 +12,18 @@ interface PresetGoal {
   activeShadow: string;
 }
 
+// Emojis are written as Unicode escapes (not literals) so the source stays
+// pure-ASCII and can never get mangled by a wrong-encoding save.
 const PRESETS: PresetGoal[] = [
-  { id: 'deep-work', title: 'Deep Work', emoji: 'ðŸ§ ', activeBg: '#E0F2FE', activeShadow: 'rgba(56, 189, 248, 0.28)' },
-  { id: 'morning-routine', title: 'Morning Routine', emoji: 'ðŸŒ…', activeBg: '#FEF3C7', activeShadow: 'rgba(251, 191, 36, 0.28)' },
-  { id: 'screen-detox', title: 'Screen Detox', emoji: 'ðŸ“µ', activeBg: '#ECEFFA', activeShadow: 'rgba(108, 93, 211, 0.28)' },
-  { id: 'consistency', title: 'Consistency', emoji: 'ðŸ”¥', activeBg: '#FFEDD5', activeShadow: 'rgba(251, 146, 60, 0.28)' },
-  { id: 'sleep-hygiene', title: 'Sleep Hygiene', emoji: 'ðŸŒ™', activeBg: '#E0E7FF', activeShadow: 'rgba(129, 140, 248, 0.28)' },
-  { id: 'mindfulness', title: 'Mindfulness', emoji: 'ðŸ§˜', activeBg: '#D1FAE5', activeShadow: 'rgba(52, 211, 153, 0.28)' },
-  { id: 'fitness', title: 'Fitness', emoji: 'ðŸ‹ï¸', activeBg: '#FFE4E6', activeShadow: 'rgba(239, 68, 68, 0.28)' },
-  { id: 'beauty', title: 'Beauty', emoji: 'âœ¨', activeBg: '#FAE8FF', activeShadow: 'rgba(240, 46, 170, 0.28)' },
-  { id: 'nutrition', title: 'Nutrition & Diet', emoji: 'ðŸ¥‘', activeBg: '#ECFDF5', activeShadow: 'rgba(16, 185, 129, 0.28)' },
+  { id: 'deep-work', title: 'Deep Work', emoji: '\u{1F9E0}', activeBg: '#E0F2FE', activeShadow: 'rgba(56, 189, 248, 0.28)' },
+  { id: 'morning-routine', title: 'Morning Routine', emoji: '\u{1F305}', activeBg: '#FEF3C7', activeShadow: 'rgba(251, 191, 36, 0.28)' },
+  { id: 'screen-detox', title: 'Screen Detox', emoji: '\u{1F4F5}', activeBg: '#ECEFFA', activeShadow: 'rgba(108, 93, 211, 0.28)' },
+  { id: 'consistency', title: 'Consistency', emoji: '\u{1F525}', activeBg: '#FFEDD5', activeShadow: 'rgba(251, 146, 60, 0.28)' },
+  { id: 'sleep-hygiene', title: 'Sleep Hygiene', emoji: '\u{1F319}', activeBg: '#E0E7FF', activeShadow: 'rgba(129, 140, 248, 0.28)' },
+  { id: 'mindfulness', title: 'Mindfulness', emoji: '\u{1F9D8}', activeBg: '#D1FAE5', activeShadow: 'rgba(52, 211, 153, 0.28)' },
+  { id: 'fitness', title: 'Fitness', emoji: '\u{1F3CB}\u{FE0F}', activeBg: '#FFE4E6', activeShadow: 'rgba(239, 68, 68, 0.28)' },
+  { id: 'beauty', title: 'Beauty', emoji: '\u{2728}', activeBg: '#FAE8FF', activeShadow: 'rgba(240, 46, 170, 0.28)' },
+  { id: 'nutrition', title: 'Nutrition & Diet', emoji: '\u{1F951}', activeBg: '#ECFDF5', activeShadow: 'rgba(16, 185, 129, 0.28)' },
 ];
 
 export default function GoalsScreen() {
@@ -29,14 +31,14 @@ export default function GoalsScreen() {
 
   // Load existing goals from onboarding store
   const existingGoals = onboarding.get().goals.map(g => g.title);
-  
+
   // Custom goals are those selected that are not in our presets
   const presetTitles = PRESETS.map(p => p.title);
   const initialCustom = existingGoals.filter(t => !presetTitles.includes(t));
 
   const [selectedTitles, setSelectedTitles] = useState<string[]>(existingGoals);
   const [customGoals, setCustomGoals] = useState<string[]>(initialCustom);
-  
+
   const [showInput, setShowInput] = useState(false);
   const [customText, setCustomText] = useState('');
   const [focusedInput, setFocusedInput] = useState(false);
@@ -59,12 +61,12 @@ export default function GoalsScreen() {
   const saveCustomGoal = () => {
     if (customText.trim().length === 0) return;
     const title = customText.trim();
-    
+
     // Add to custom goals list if unique
     if (!customGoals.includes(title)) {
       setCustomGoals([...customGoals, title]);
     }
-    
+
     // Auto-select the newly added custom goal
     if (!selectedTitles.includes(title)) {
       setSelectedTitles([...selectedTitles, title]);
@@ -143,7 +145,7 @@ export default function GoalsScreen() {
                   ]}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <Text style={{ fontSize: 16, marginRight: 10 }}>ðŸŽ¯</Text>
+                    <Text style={{ fontSize: 16, marginRight: 10 }}>{'\u{1F3AF}'}</Text>
                     <Text style={[
                       styles.customGoalText,
                       isSelected && styles.customGoalTextActive,
@@ -156,7 +158,7 @@ export default function GoalsScreen() {
                     hitSlop={8}
                     style={styles.customGoalRemove}
                   >
-                    <Text style={styles.customGoalRemoveText}>Ã—</Text>
+                    <Text style={styles.customGoalRemoveText}>{'×'}</Text>
                   </Pressable>
                 </Pressable>
               );
@@ -183,8 +185,8 @@ export default function GoalsScreen() {
               <Pressable onPress={saveCustomGoal} style={styles.inputSaveBtn}>
                 <Text style={styles.inputSaveBtnText}>Save Goal</Text>
               </Pressable>
-              <Pressable 
-                onPress={() => { setShowInput(false); setCustomText(''); }} 
+              <Pressable
+                onPress={() => { setShowInput(false); setCustomText(''); }}
                 style={styles.inputCancelBtn}
               >
                 <Text style={styles.inputCancelBtnText}>Cancel</Text>

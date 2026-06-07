@@ -160,7 +160,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–²</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▲</Text>
           </Pressable>
           <View style={styles.digitCard}>
             <Text style={styles.digitText}>{hour.toString().padStart(2, '0')}</Text>
@@ -170,7 +170,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–¼</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▼</Text>
           </Pressable>
           <Text style={styles.digitLabel}>HOURS</Text>
         </View>
@@ -187,7 +187,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–²</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▲</Text>
           </Pressable>
           <View style={styles.digitCard}>
             <Text style={styles.digitText}>{minute.toString().padStart(2, '0')}</Text>
@@ -197,7 +197,7 @@ function TimePickerWidget({
             style={({ pressed }) => [styles.chevronBtn, pressed && { opacity: 0.5 }]}
             hitSlop={10}
           >
-            <Text style={[styles.chevronText, { color: accentColor }]}>â–¼</Text>
+            <Text style={[styles.chevronText, { color: accentColor }]}>▼</Text>
           </Pressable>
           <Text style={styles.digitLabel}>MINUTES</Text>
         </View>
@@ -294,9 +294,9 @@ export default function ScheduleScreen() {
         {/* Morning Check-In Section */}
         <View style={styles.cardContainer}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20, marginRight: 8 }}>ðŸŒ…</Text>
+            <Text style={{ fontSize: 20, marginRight: 8 }}>🌅</Text>
             <View>
-              <Text style={styles.cardTitle}>Morning Ignition</Text>
+              <Text style={styles.cardTitle}>Morning Kickoff</Text>
               <Text style={styles.cardSubtitle}>Set priorities & awaken energy</Text>
             </View>
           </View>
@@ -334,7 +334,7 @@ export default function ScheduleScreen() {
               ]}
             >
               <Text style={[styles.pillLabel, isCustomMorning && styles.pillLabelSelected]}>
-                Other Time â°
+                Other Time ⏰
               </Text>
             </Pressable>
           </View>
@@ -353,10 +353,10 @@ export default function ScheduleScreen() {
         {/* Evening Reflection Section */}
         <View style={[styles.cardContainer, { marginTop: 18 }]}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20, marginRight: 8 }}>ðŸŒ™</Text>
+            <Text style={{ fontSize: 20, marginRight: 8 }}>🌙</Text>
             <View>
-              <Text style={styles.cardTitle}>Evening Reflection</Text>
-              <Text style={styles.cardSubtitle}>90s retrospective daily review</Text>
+              <Text style={styles.cardTitle}>Evening Cooldown</Text>
+              <Text style={styles.cardSubtitle}>90s wind-down & reflection</Text>
             </View>
           </View>
           <View style={styles.pillGrid}>
@@ -393,7 +393,7 @@ export default function ScheduleScreen() {
               ]}
             >
               <Text style={[styles.pillLabel, isCustomEvening && styles.pillLabelSelected]}>
-                Other Time â°
+                Other Time ⏰
               </Text>
             </Pressable>
           </View>
