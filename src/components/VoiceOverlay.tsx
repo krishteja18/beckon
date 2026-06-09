@@ -40,12 +40,17 @@ export function VoiceOverlayProvider({ children }: { children: React.ReactNode }
 
   const open = useCallback((cfg?: Partial<SessionConfig>) => {
     setIsOpen(true);
-    start({
-      callType: 'midday',
-      enableTools: true,
-      textMode: isWeb,
-      ...cfg,
-    } as SessionConfig);
+    // Never let a session-start failure stop the overlay from appearing.
+    try {
+      start({
+        callType: 'midday',
+        enableTools: true,
+        textMode: isWeb,
+        ...cfg,
+      } as SessionConfig);
+    } catch (e) {
+      console.warn('[voice] start failed', e);
+    }
   }, [start]);
 
   const close = useCallback(() => {

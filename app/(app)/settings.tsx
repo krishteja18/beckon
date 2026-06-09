@@ -219,7 +219,7 @@ function NameField({ value, onSave }: { value: string; onSave: (v: string) => vo
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F6FB' },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
   center: { alignItems: 'center', justifyContent: 'center' },
   headerText: {
     color: '#1E1B4B', fontSize: 28, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.6,

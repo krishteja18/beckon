@@ -145,7 +145,7 @@ export default function Avoidance() {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#F4F6FB',
+    backgroundColor: 'transparent',
   },
   backLink: {
     color: '#6C5DD3',

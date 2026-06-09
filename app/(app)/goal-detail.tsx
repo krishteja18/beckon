@@ -188,7 +188,7 @@ function Dot({ status }: { status: DotStatus }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F6FB' },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
   scrollContent: { paddingBottom: 40 },
   headerRow: {
     paddingHorizontal: 24,

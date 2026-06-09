@@ -3,7 +3,6 @@ import { ScrollView, Text, View, Pressable, ActivityIndicator, AppState, StyleSh
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing } from 'react-native-reanimated';
-import { AmbientBackground } from '../../src/components/AmbientBackground';
 import { fetchTodayTimeline, TimelineSlot, fetchGoalsWithSchedules, GoalWithSchedules, slotDisplayName } from '../../src/services/goals';
 import { fetchRoutines, Routine } from '../../src/services/routines';
 import { fetchTodayOutcomes, recordOutcome, clearTodayOutcome, outcomeKey, OutcomeKind, OutcomeTarget } from '../../src/services/outcomes';
@@ -116,6 +115,14 @@ export default function Home() {
   ) => {
     const todayDow = new Date().getDay();
     const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+
+    // Actual calendar date of the viewed day in the current week (Sunday-start),
+    // used to place one-off reminders (routines with a remind_date) on their date.
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    const viewedDate = new Date(startOfWeek);
+    viewedDate.setDate(startOfWeek.getDate() + dayIndex);
+    const viewedDateStr = `${viewedDate.getFullYear()}-${String(viewedDate.getMonth() + 1).padStart(2, '0')}-${String(viewedDate.getDate()).padStart(2, '0')}`;
     const slots: TimelineSlot[] = [];
 
     const computeStatus = (schedMinutes: number): TimelineSlot['status'] => {
@@ -158,7 +165,13 @@ export default function Home() {
 
     for (const routine of allRoutines) {
       if (!routine.active) continue;
-      if (!routine.scheduled_days.includes(dayIndex)) continue;
+      if (routine.remind_date) {
+        // One-off reminder: only on its exact date.
+        if (routine.remind_date.slice(0, 10) !== viewedDateStr) continue;
+      } else {
+        // Recurring reminder: by day-of-week.
+        if (!routine.scheduled_days.includes(dayIndex)) continue;
+      }
       const [hh, mm] = routine.scheduled_time.split(':').map(Number);
       const { time, timeLabel } = formatTime(hh, mm);
       slots.push({
@@ -472,7 +485,7 @@ export default function Home() {
   }));
 
   return (
-    <AmbientBackground>
+    <>
       <Animated.View style={animatedScreenStyle}>
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           
@@ -745,25 +758,9 @@ export default function Home() {
               </View>
             </View>
 
-            {/* Voice Ball + Label */}
-            <View style={styles.voiceOrbWrapper}>
-              <Text style={[
-                styles.voiceOrbLabel,
-                orbState !== 'idle' && styles.voiceOrbLabelActive,
-              ]}>
-                {orbState === 'idle' ? 'tap to speak' :
-                 orbState === 'listening' ? 'listening...' :
-                 orbState === 'processing' ? 'thinking...' : 'speaking'}
-              </Text>
-              
-              <Animated.View style={[styles.orbContainer, animatedOrbStyle]}>
-                <VoiceBall 
-                  state={orbState} 
-                  size={88} 
-                  onPress={handleVoiceOrbTap} 
-                />
-              </Animated.View>
-            </View>
+            {/* Reserved space where the quick-add button was — kept so the content
+                above doesn't shift down; the nav-bar orb floats up into this area. */}
+            <View style={{ height: 84 }} />
           </View>
 
           {/* Safe Space tabbar inset */}
@@ -971,7 +968,7 @@ export default function Home() {
         }}
       />
 
-    </AmbientBackground>
+    </>
   );
 }
 
@@ -1472,6 +1469,26 @@ const styles = StyleSheet.create({
   orbContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addCircleBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#6C5DD3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  addCirclePlus: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    lineHeight: 38,
+    marginTop: -2,
+    fontFamily: 'Inter_400Regular',
   },
 
   // Background Live Call Banner & Dim overlay

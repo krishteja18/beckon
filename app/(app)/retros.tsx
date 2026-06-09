@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AmbientBackground } from '../../src/components/AmbientBackground';
 import { fetchRetros, ensureRetros, computeLiveRetro, RetroType, LiveRetro } from '../../src/services/retros';
 import { Database } from '../../src/services/database.types';
 
@@ -41,7 +40,6 @@ export default function Retros() {
   const isEmpty = !loading && !live && retros.length === 0;
 
   return (
-    <AmbientBackground>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         {/* Header */}
         <View style={styles.header}>
@@ -112,7 +110,6 @@ export default function Retros() {
           </ScrollView>
         )}
       </SafeAreaView>
-    </AmbientBackground>
   );
 }
 
