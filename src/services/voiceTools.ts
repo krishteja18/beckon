@@ -83,15 +83,17 @@ export const VOICE_TOOL_DECLARATIONS: FnDecl[] = [
   },
   {
     name: 'createRoutine',
-    description: 'Create a lightweight recurring reminder (medication, vitamins, water, stretch). Atomic — one routine = one time + days. For morning + evening, create two routines. The coach rings briefly at this time and asks if it was handled.',
+    description: 'Create a reminder with no goal. Either RECURRING (medication, vitamins, water — provide `days`) OR ONE-TIME on a specific calendar date (provide `date`, e.g. "dentist on June 20" → fires once that day, `days` ignored). The coach rings briefly and asks if it was handled.',
     parameters: {
       type: 'OBJECT',
       properties: {
-        title: { type: 'STRING', description: 'Short title, e.g. "Take BP tablet" or "Drink water".' },
+        title: { type: 'STRING', description: 'Short title, e.g. "Take BP tablet" or "Dentist appointment".' },
         time: TIME_PARAM,
         days: DAYS_PARAM,
+        date: { type: 'STRING', description: 'For a ONE-TIME reminder only: the calendar date in YYYY-MM-DD. When set it fires once on that date and `days` is ignored. Omit for recurring.' },
+        description: { type: 'STRING', description: 'Optional detail for the coach to mention, e.g. "bring last reports".' },
       },
-      required: ['title', 'time', 'days'],
+      required: ['title', 'time'],
     },
   },
   {
@@ -277,9 +279,20 @@ export async function dispatchToolCall(
         const title = String(args.title ?? '').trim();
         if (!title) return { ok: false, message: 'Title is required.' };
         const time = normalizeTime(String(args.time));
-        const days = normalizeDays(args.days) ?? [0, 1, 2, 3, 4, 5, 6];
-        const r = await createRoutine(title, time, days);
-        return { ok: true, message: `Routine "${title}" set for ${time}.`, entityId: r.id };
+        const date = args.date ? String(args.date).slice(0, 10) : null;
+        const description = args.description ? String(args.description).trim() : null;
+        let days = normalizeDays(args.days) ?? [0, 1, 2, 3, 4, 5, 6];
+        if (date) {
+          const dt = new Date(`${date}T00:00:00`);
+          if (isNaN(dt.getTime())) return { ok: false, message: 'Invalid date — use YYYY-MM-DD.' };
+          days = [dt.getDay()]; // satisfies the days constraint; one-offs key off the date
+        }
+        const r = await createRoutine(title, time, days, { remindDate: date, description });
+        return {
+          ok: true,
+          message: date ? `Reminder "${title}" set for ${date} at ${time}.` : `Routine "${title}" set for ${time}.`,
+          entityId: r.id,
+        };
       }
 
       case 'addSchedule': {

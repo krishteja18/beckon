@@ -26,6 +26,14 @@ function daysSummary(days: number[]): string {
   return days.map(d => DAY_LETTERS[d]).join(' ');
 }
 
+/** "Mon, Jun 23" for a one-off reminder date (YYYY-MM-DD). */
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+}
+
 const FRAMEWORK_LABEL: Record<string, string> = {
   atomic_habits: 'Atomic Habits',
   ikigai: 'Ikigai',
@@ -294,8 +302,13 @@ export default function Goals() {
               <View style={styles.routineRowLeft}>
                 <Text style={styles.routineTitle} numberOfLines={1}>{r.title}</Text>
                 <Text style={styles.routineMeta} numberOfLines={1}>
-                  {daysSummary(r.scheduled_days)} · {formatTime12h(r.scheduled_time)}
+                  {r.remind_date
+                    ? `${formatDate(r.remind_date)} · ${formatTime12h(r.scheduled_time)}`
+                    : `${daysSummary(r.scheduled_days)} · ${formatTime12h(r.scheduled_time)}`}
                 </Text>
+                {r.description ? (
+                  <Text style={styles.routineMeta} numberOfLines={1}>{r.description}</Text>
+                ) : null}
               </View>
               <View style={styles.routineTimeBadge}>
                 <Text style={styles.routineTimeBadgeText}>
@@ -325,7 +338,7 @@ const TILE_GAP = 12;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F6FB',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

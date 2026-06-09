@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,12 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import Svg, { Path, Rect, Line } from 'react-native-svg';
 import {
   createGoal,
   addSchedule,
@@ -133,6 +134,97 @@ function TimeField({
   );
 }
 
+function isoOf(year: number, month0: number, day: number): string {
+  return `${year}-${String(month0 + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+function todayISO(): string {
+  const d = new Date();
+  return isoOf(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** "Mon, Jun 23, 2026" for display in the date field. */
+function formatDateLabel(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
+function CalendarIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#6C5DD3" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <Line x1="16" y1="2" x2="16" y2="6" />
+      <Line x1="8" y1="2" x2="8" y2="6" />
+      <Line x1="3" y1="10" x2="21" y2="10" />
+    </Svg>
+  );
+}
+
+const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/** Inline month calendar. value = selected "YYYY-MM-DD". Past days are disabled. */
+function CalendarPicker({ value, onSelect }: { value: string; onSelect: (iso: string) => void }) {
+  const [view, setView] = useState(() => {
+    const [y, m] = value.slice(0, 10).split('-').map(Number);
+    return { year: y || new Date().getFullYear(), month: (m || 1) - 1 };
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const firstDow = new Date(view.year, view.month, 1).getDay();
+  const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const monthLabel = new Date(view.year, view.month, 1).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const prev = () => setView(v => (v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 }));
+  const next = () => setView(v => (v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 }));
+
+  return (
+    <View style={styles.cal}>
+      <View style={styles.calHeader}>
+        <Pressable onPress={prev} hitSlop={10} style={styles.calNav}>
+          <Text style={styles.calNavText}>‹</Text>
+        </Pressable>
+        <Text style={styles.calMonth}>{monthLabel}</Text>
+        <Pressable onPress={next} hitSlop={10} style={styles.calNav}>
+          <Text style={styles.calNavText}>›</Text>
+        </Pressable>
+      </View>
+      <View style={styles.calWeekRow}>
+        {WEEKDAY_LETTERS.map((w, i) => (
+          <Text key={i} style={styles.calWeekday}>{w}</Text>
+        ))}
+      </View>
+      <View style={styles.calGrid}>
+        {cells.map((d, i) => {
+          if (d === null) return <View key={i} style={styles.calCell} />;
+          const cellTime = new Date(view.year, view.month, d).getTime();
+          const iso = isoOf(view.year, view.month, d);
+          const isPast = cellTime < today.getTime();
+          const isSel = iso === value;
+          const isToday = cellTime === today.getTime();
+          return (
+            <Pressable key={i} disabled={isPast} onPress={() => onSelect(iso)} style={styles.calCell}>
+              <View style={[styles.calDay, isSel && styles.calDaySel, isToday && !isSel && styles.calDayToday]}>
+                <Text style={[styles.calDayText, isSel && styles.calDayTextSel, isPast && styles.calDayTextPast]}>
+                  {d}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 // ── Screen ───────────────────────────────────────────────────────────────────
 
 export default function AddScreen() {
@@ -143,6 +235,7 @@ export default function AddScreen() {
 
   const [mode, setMode] = useState<Mode>(initialMode);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Goal mode
   const [goalTitle, setGoalTitle] = useState('');
@@ -159,17 +252,43 @@ export default function AddScreen() {
 
   // Routine mode
   const [routineTitle, setRoutineTitle] = useState('');
+  const [routineDescription, setRoutineDescription] = useState('');
   const [routineTime, setRoutineTime] = useState<TimeDraft>({ hour: '8', minute: '00', period: 'AM' });
   const [routineDays, setRoutineDays] = useState<number[]>([...EVERY_DAY]);
+  const [routineOnce, setRoutineOnce] = useState(false);          // true = one-time on a date
+  const [routineDate, setRoutineDate] = useState<string>(todayISO()); // "YYYY-MM-DD"
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
-  useEffect(() => {
-    fetchGoalsWithSchedules()
-      .then(gs => {
-        setGoals(gs);
-        if (!targetGoalId && gs.length > 0) setTargetGoalId(gs[0].id);
-      })
-      .finally(() => setGoalsLoading(false));
-  }, []);
+  // Reset to a clean form every time the screen is opened (it's a persistent
+  // tab screen, so state would otherwise survive navigation), and refresh the
+  // goal list (one may have just been added).
+  useFocusEffect(
+    useCallback(() => {
+      setMode(params.mode === 'task' || params.mode === 'routine' ? params.mode : 'goal');
+      setSaving(false);
+      setError(null);
+      setGoalTitle('');
+      setFramework('atomic_habits');
+      setGoalSlots([]);
+      setTaskName('');
+      setTaskTime({ hour: '8', minute: '00', period: 'AM' });
+      setTaskDays([...EVERY_DAY]);
+      setRoutineTitle('');
+      setRoutineDescription('');
+      setRoutineTime({ hour: '8', minute: '00', period: 'AM' });
+      setRoutineDays([...EVERY_DAY]);
+      setRoutineOnce(false);
+      setRoutineDate(todayISO());
+      setCalendarOpen(false);
+      setGoalsLoading(true);
+      fetchGoalsWithSchedules()
+        .then(gs => {
+          setGoals(gs);
+          setTargetGoalId(params.goalId ?? (gs.length > 0 ? gs[0].id : null));
+        })
+        .finally(() => setGoalsLoading(false));
+    }, [params.mode, params.goalId]),
+  );
 
   // ── Goal-slot helpers ──
   const addGoalSlot = () => setGoalSlots(prev => [...prev, newSlot()]);
@@ -192,38 +311,58 @@ export default function AddScreen() {
 
   // ── Save ──
   const handleSave = async () => {
+    setError(null);
     try {
       if (mode === 'goal') {
         const title = goalTitle.trim();
-        if (!title) return Alert.alert('Name your goal', 'Give the goal a short title.');
-        const schedules: { time: string; days: number[]; name?: string | null }[] = [];
+        if (!title) return setError('Give your goal a name.');
+        // Block duplicates (case-insensitive) against existing active goals.
+        if (goals.some(g => g.title.trim().toLowerCase() === title.toLowerCase())) {
+          return setError(`You already have a goal called "${title}".`);
+        }
+        const schedules: { time: string; days: number[]; name: string }[] = [];
         for (const s of goalSlots) {
+          if (!s.name.trim()) return setError('Give every task a name.');
           const t = to24h(s);
-          if (!t) return Alert.alert('Invalid time', 'Check the time on one of the slots.');
-          if (s.days.length === 0) return Alert.alert('Pick at least one day', 'Each time needs a day selected.');
-          schedules.push({ time: t, days: s.days, name: s.name.trim() || null });
+          if (!t) return setError('Check the time on each task (1–12 hour, 0–59 min).');
+          if (s.days.length === 0) return setError('Pick at least one day for each task.');
+          schedules.push({ time: t, days: s.days, name: s.name.trim() });
         }
         setSaving(true);
         await createGoal(title, framework, schedules);
       } else if (mode === 'task') {
-        if (!targetGoalId) return Alert.alert('Pick a goal', 'Choose which goal this belongs to.');
+        if (!targetGoalId) return setError('Pick which goal this task belongs to.');
+        if (!taskName.trim()) return setError('Give the task a name.');
         const t = to24h(taskTime);
-        if (!t) return Alert.alert('Invalid time', 'Check the time.');
-        if (taskDays.length === 0) return Alert.alert('Pick at least one day', 'Choose at least one day.');
+        if (!t) return setError('Check the time (1–12 hour, 0–59 min).');
+        if (taskDays.length === 0) return setError('Pick at least one day.');
         setSaving(true);
-        await addSchedule(targetGoalId, t, taskDays, taskName.trim() || null);
+        await addSchedule(targetGoalId, t, taskDays, taskName.trim());
       } else {
         const title = routineTitle.trim();
-        if (!title) return Alert.alert('Name your reminder', 'Give the routine a short title.');
+        if (!title) return setError('Give your reminder a name.');
         const t = to24h(routineTime);
-        if (!t) return Alert.alert('Invalid time', 'Check the time.');
-        if (routineDays.length === 0) return Alert.alert('Pick at least one day', 'Choose at least one day.');
-        setSaving(true);
-        await createRoutine(title, t, routineDays);
+        if (!t) return setError('Check the time (1–12 hour, 0–59 min).');
+        if (routineOnce) {
+          const iso = routineDate;
+          const dt = new Date(`${iso}T00:00:00`);
+          const today0 = new Date();
+          today0.setHours(0, 0, 0, 0);
+          if (isNaN(dt.getTime())) return setError('Pick a date.');
+          if (dt < today0) return setError('Pick today or a future date.');
+          setSaving(true);
+          // store the date's weekday in scheduled_days to satisfy the non-empty
+          // constraint; the timeline keys one-offs off remind_date, not days.
+          await createRoutine(title, t, [dt.getDay()], { remindDate: iso, description: routineDescription });
+        } else {
+          if (routineDays.length === 0) return setError('Pick at least one day.');
+          setSaving(true);
+          await createRoutine(title, t, routineDays, { description: routineDescription });
+        }
       }
       router.back();
     } catch (e) {
-      Alert.alert('Could not save', String(e));
+      setError(String(e));
     } finally {
       setSaving(false);
     }
@@ -234,11 +373,13 @@ export default function AddScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeBtn}>
-          <Text style={styles.closeText}>Cancel</Text>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerSide}>
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#1E1B4B" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M15 18l-6-6 6-6" />
+          </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>Add</Text>
-        <View style={{ width: 56 }} />
+        <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]}>Add</Text>
+        <View style={styles.headerSide} />
       </View>
 
       {/* Type segmented control */}
@@ -265,8 +406,8 @@ export default function AddScreen() {
         {mode === 'goal' && (
           <>
             <Text style={styles.hint}>
-              A goal the coach drives toward — gym, reading, meditation. Add one or more times below
-              (each can have its own name).
+              A goal the coach drives toward — gym, reading, meditation. Tasks are optional: add named
+              times under it (e.g. Breakfast, Lunch, Snack), or save the goal on its own and add them later.
             </Text>
             <Text style={styles.fieldLabel}>GOAL</Text>
             <TextInput
@@ -291,14 +432,14 @@ export default function AddScreen() {
               ))}
             </View>
 
-            <Text style={styles.fieldLabel}>TIMES (OPTIONAL)</Text>
+            <Text style={styles.fieldLabel}>TASKS (OPTIONAL)</Text>
             {goalSlots.map((s, i) => (
               <View key={i} style={styles.slotCard}>
                 <TextInput
                   style={styles.nameInput}
                   value={s.name}
                   onChangeText={t => patchGoalSlot(i, { name: t })}
-                  placeholder="Name (optional) — e.g. Lunch"
+                  placeholder="Task name — e.g. Lunch"
                   placeholderTextColor="#9CA3AF"
                   maxLength={40}
                 />
@@ -317,7 +458,7 @@ export default function AddScreen() {
               </View>
             ))}
             <Pressable onPress={addGoalSlot} style={styles.addRow}>
-              <Text style={styles.addRowText}>+ Add a time</Text>
+              <Text style={styles.addRowText}>+ Add a task</Text>
             </Pressable>
           </>
         )}
@@ -382,7 +523,8 @@ export default function AddScreen() {
         {mode === 'routine' && (
           <>
             <Text style={styles.hint}>
-              A lightweight recurring reminder with no goal — medication, vitamins, water.
+              A reminder with no goal — recurring (medication, water) or one-off (a doctor's
+              appointment on a specific date).
             </Text>
 
             <Text style={styles.fieldLabel}>REMINDER</Text>
@@ -395,16 +537,56 @@ export default function AddScreen() {
               maxLength={60}
             />
 
+            <Text style={styles.fieldLabel}>DETAILS (OPTIONAL)</Text>
+            <TextInput
+              style={styles.descInput}
+              value={routineDescription}
+              onChangeText={setRoutineDescription}
+              placeholder="Anything the coach should mention — e.g. bring last reports"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              maxLength={200}
+            />
+
+            <Text style={styles.fieldLabel}>WHEN</Text>
+            <View style={styles.whenToggle}>
+              <Pressable
+                onPress={() => setRoutineOnce(false)}
+                style={[styles.segment, !routineOnce && styles.segmentOn]}
+              >
+                <Text style={[styles.segmentText, !routineOnce && styles.segmentTextOn]}>Repeats</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setRoutineOnce(true)}
+                style={[styles.segment, routineOnce && styles.segmentOn]}
+              >
+                <Text style={[styles.segmentText, routineOnce && styles.segmentTextOn]}>Just once</Text>
+              </Pressable>
+            </View>
+
             <Text style={styles.fieldLabel}>TIME</Text>
             <TimeField time={routineTime} onChange={patch => setRoutineTime(prev => ({ ...prev, ...patch }))} />
 
-            <Text style={styles.fieldLabel}>DAYS</Text>
-            <DaySelector days={routineDays} onToggle={toggleRoutineDay} onPreset={setRoutineDays} />
+            {routineOnce ? (
+              <>
+                <Text style={styles.fieldLabel}>DATE</Text>
+                <Pressable style={styles.dateField} onPress={() => setCalendarOpen(true)}>
+                  <CalendarIcon />
+                  <Text style={styles.dateFieldText}>{formatDateLabel(routineDate)}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.fieldLabel}>DAYS</Text>
+                <DaySelector days={routineDays} onToggle={toggleRoutineDay} onPreset={setRoutineDays} />
+              </>
+            )}
           </>
         )}
       </ScrollView>
 
       <View style={styles.footer}>
+        {error && <Text style={styles.errorText}>{error}</Text>}
         <Pressable
           onPress={handleSave}
           disabled={saving || (mode === 'task' && goals.length === 0)}
@@ -416,22 +598,33 @@ export default function AddScreen() {
           <Text style={styles.saveBtnText}>{saving ? 'Saving…' : saveLabel}</Text>
         </Pressable>
       </View>
+
+      {/* Calendar popup — tap a day to pick and close */}
+      <Modal transparent visible={calendarOpen} animationType="fade" onRequestClose={() => setCalendarOpen(false)}>
+        <Pressable style={styles.calOverlay} onPress={() => setCalendarOpen(false)}>
+          <Pressable style={styles.calModalWrap} onPress={() => { /* swallow taps inside */ }}>
+            <CalendarPicker
+              value={routineDate}
+              onSelect={iso => { setRoutineDate(iso); setCalendarOpen(false); }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F6FB' },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 20,
     paddingBottom: 12,
   },
-  closeBtn: { width: 56 },
-  closeText: { color: '#6B7280', fontSize: 14, fontFamily: 'Inter_500Medium' },
+  headerSide: { width: 40, alignItems: 'flex-start', justifyContent: 'center' },
   headerTitle: { color: '#1E1B4B', fontSize: 17, fontFamily: 'Inter_600SemiBold' },
   segmented: {
     flexDirection: 'row',
@@ -530,6 +723,99 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     color: '#1E1B4B',
   },
+  dateField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.16)',
+    paddingHorizontal: 14,
+  },
+  dateFieldText: { color: '#1E1B4B', fontSize: 15, fontFamily: 'Inter_500Medium' },
+  calOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 27, 75, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  calModalWrap: { width: '100%', maxWidth: 360 },
+  cal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.16)',
+    padding: 12,
+  },
+  calHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  calNav: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(108, 93, 211, 0.06)',
+  },
+  calNavText: { color: '#6C5DD3', fontSize: 20, fontFamily: 'Inter_600SemiBold', marginTop: -2 },
+  calMonth: { color: '#1E1B4B', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  calWeekRow: { flexDirection: 'row', marginBottom: 4 },
+  calWeekday: {
+    width: `${100 / 7}%`,
+    textAlign: 'center',
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontFamily: 'JetBrainsMono_500Medium',
+  },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calCell: {
+    width: `${100 / 7}%`,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calDay: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calDaySel: { backgroundColor: '#6C5DD3' },
+  calDayToday: { borderWidth: 1, borderColor: 'rgba(108, 93, 211, 0.4)' },
+  calDayText: { color: '#1E1B4B', fontSize: 14, fontFamily: 'Inter_500Medium' },
+  calDayTextSel: { color: '#FFFFFF', fontFamily: 'Inter_600SemiBold' },
+  calDayTextPast: { color: '#C7CBD3' },
+  descInput: {
+    minHeight: 64,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.16)',
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: '#1E1B4B',
+    textAlignVertical: 'top',
+  },
+  whenToggle: {
+    flexDirection: 'row',
+    padding: 4,
+    backgroundColor: 'rgba(108, 93, 211, 0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+  },
   colon: { color: '#1E1B4B', fontSize: 17, fontFamily: 'Inter_600SemiBold', marginHorizontal: 2 },
   periodToggle: {
     marginLeft: 8,
@@ -605,10 +891,9 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(108, 93, 211, 0.08)',
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 60, // clear the nav bar + the orb that floats above it
+    // Transparent so the footer matches the screen bg (no white band / divider).
+    backgroundColor: 'transparent',
   },
   saveBtn: {
     height: 50,
@@ -618,4 +903,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: { color: '#FFFFFF', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
 });

@@ -57,6 +57,14 @@ function nextFireMs(scheduledTime: string, scheduledDays: number[]): number {
   return now.getTime() + 7 * 24 * 60 * 60 * 1000;
 }
 
+/** Epoch-ms for a one-off reminder on a specific date, or null if it's in the past. */
+function oneOffFireMs(remindDate: string, scheduledTime: string): number | null {
+  const [y, mo, da] = remindDate.slice(0, 10).split('-').map(Number);
+  const [hh, mm] = scheduledTime.split(':').map(Number);
+  const d = new Date(y, (mo || 1) - 1, da || 1, hh || 0, mm || 0, 0, 0);
+  return d.getTime() < Date.now() ? null : d.getTime();
+}
+
 /**
  * Sync all alarms. Idempotent — call on:
  *   - App foreground
@@ -101,10 +109,15 @@ export async function syncAlarms(): Promise<void> {
   );
 
   // Routines: short reminder calls. Use profile's default framework + intensity.
+  // One-off reminders (remind_date set) fire once on that date; past ones are skipped.
   const routineAlarms = routines
     .filter(r => r.active)
     .map(r => {
-      const fireAtMs = nextFireMs(r.scheduled_time, r.scheduled_days);
+      const fireAtMs = r.remind_date
+        ? oneOffFireMs(r.remind_date, r.scheduled_time)
+        : nextFireMs(r.scheduled_time, r.scheduled_days);
+      if (fireAtMs == null) return null;
+      const title = r.description?.trim() ? `${r.title} — ${r.description.trim()}` : r.title;
       return {
         alarmId: r.id,
         fireAtMs,
@@ -115,11 +128,12 @@ export async function syncAlarms(): Promise<void> {
           callType: 'routine',
           intensity,
           userName,
-          routineTitle: r.title,
+          routineTitle: title,
           framework: defaultFramework,
         }),
       };
-    });
+    })
+    .filter((a): a is NonNullable<typeof a> => a !== null);
 
   // Cancel everything first, then schedule fresh. Native module dedupes by id.
   await ShowupAlarm.cancelAllAlarms();
