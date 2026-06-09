@@ -32,12 +32,55 @@ export interface VelocityResult {
 export async function computeVelocity(days: number = 7): Promise<VelocityResult> {
   const isBypass = typeof window !== 'undefined' && localStorage.getItem('bypass_auth') === 'true';
   if (isBypass) {
-    const rawSchedules = localStorage.getItem('mock_schedules') || '[]';
-    const schedules = JSON.parse(rawSchedules).filter((s: any) => s.active);
-    
+    const schedules = JSON.parse(localStorage.getItem('mock_schedules') || '[]')
+      .filter((s: any) => s.active)
+      .map((s: any) => ({ id: s.id, goal_id: s.goal_id, scheduled_days: s.scheduled_days as number[] }));
     if (schedules.length === 0) return { percent: 0, completed: 0, expected: 0, trend: null };
-    
-    return { percent: 92, completed: 6, expected: 7, trend: 4 }; // +4% trend
+
+    // Same logic as the real path, against the mock_task_events store.
+    const events = JSON.parse(localStorage.getItem('mock_task_events') || '[]')
+      .filter((e: any) => e.kind === 'completed');
+    const goalsByDay = new Map<string, Set<string>>();
+    const schedsByDay = new Map<string, Set<string>>();
+    for (const e of events) {
+      const dk = e.user_local_date;
+      if (!dk) continue;
+      if (e.goal_id) { const s = goalsByDay.get(dk) ?? new Set<string>(); s.add(e.goal_id); goalsByDay.set(dk, s); }
+      if (e.schedule_id) { const s = schedsByDay.get(dk) ?? new Set<string>(); s.add(e.schedule_id); schedsByDay.set(dk, s); }
+    }
+    const EMPTY = new Set<string>();
+    const done = (dk: string, s: { id: string; goal_id: string }) =>
+      (schedsByDay.get(dk) ?? EMPTY).has(s.id) || (goalsByDay.get(dk) ?? EMPTY).has(s.goal_id);
+
+    const countWindow = (startDaysAgo: number) => {
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const start = new Date(todayStart); start.setDate(start.getDate() - startDaysAgo);
+      let expected = 0, completed = 0;
+      for (let i = 0; i < days; i++) {
+        const d = new Date(start); d.setDate(d.getDate() + i);
+        if (d.getTime() > Date.now()) continue;
+        const dk = localDateString(d);
+        const dow = d.getDay();
+        for (const s of schedules) {
+          if (!s.scheduled_days.includes(dow)) continue;
+          expected++;
+          if (done(dk, s)) completed++;
+        }
+      }
+      return { expected, completed };
+    };
+
+    const cur = countWindow(days - 1);
+    const prev = countWindow(days * 2 - 1);
+    if (cur.expected === 0) return { percent: 0, completed: 0, expected: 0, trend: null };
+    const curPct = Math.round((cur.completed / cur.expected) * 100);
+    const prevPct = prev.expected === 0 ? 0 : Math.round((prev.completed / prev.expected) * 100);
+    return {
+      percent: curPct,
+      completed: cur.completed,
+      expected: cur.expected,
+      trend: prev.expected === 0 ? null : curPct - prevPct,
+    };
   }
 
   const { data: { user } } = await supabase.auth.getUser();

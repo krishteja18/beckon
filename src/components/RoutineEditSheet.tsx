@@ -6,9 +6,9 @@ import {
   Pressable,
   TextInput,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { Routine, createRoutine, updateRoutine } from '../services/routines';
+import { DatePickerField, todayISO } from './DatePickerField';
 
 interface Props {
   visible: boolean;
@@ -43,10 +43,15 @@ export function RoutineEditSheet({ visible, routine, onClose, onSaved }: Props) 
   const [minute, setMinute] = useState('00');
   const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [description, setDescription] = useState('');
+  const [once, setOnce] = useState(false);            // true = one-time on a date
+  const [date, setDate] = useState<string>(todayISO()); // "YYYY-MM-DD"
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
+    setError(null);
     if (routine) {
       setTitle(routine.title);
       const parsed = parseTime(routine.scheduled_time);
@@ -54,12 +59,18 @@ export function RoutineEditSheet({ visible, routine, onClose, onSaved }: Props) 
       setMinute(parsed.minute);
       setPeriod(parsed.period);
       setDays([...routine.scheduled_days]);
+      setDescription(routine.description ?? '');
+      setOnce(!!routine.remind_date);
+      setDate(routine.remind_date ? routine.remind_date.slice(0, 10) : todayISO());
     } else {
       setTitle('');
       setHour('8');
       setMinute('00');
       setPeriod('AM');
       setDays([0, 1, 2, 3, 4, 5, 6]);
+      setDescription('');
+      setOnce(false);
+      setDate(todayISO());
     }
   }, [visible, routine]);
 
@@ -72,31 +83,39 @@ export function RoutineEditSheet({ visible, routine, onClose, onSaved }: Props) 
   const presetWeekends = () => setDays([0, 6]);
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      Alert.alert('Add a title', 'Give the routine a name like "Take BP tablet".');
-      return;
-    }
+    setError(null);
+    if (!title.trim()) return setError('Give the reminder a name.');
     const t = to24h(hour, minute, period);
-    if (!t) {
-      Alert.alert('Invalid time', 'Use a 1–12 hour and 0–59 minute.');
-      return;
-    }
-    if (days.length === 0) {
-      Alert.alert('Pick at least one day', 'Each routine needs at least one day selected.');
-      return;
+    if (!t) return setError('Check the time (1–12 hour, 0–59 min).');
+
+    // One-time vs recurring: one-off stores its weekday in days (constraint) and
+    // the chosen date in remind_date; recurring clears remind_date.
+    let saveDays = days;
+    let remindDate: string | null = null;
+    if (once) {
+      const dt = new Date(`${date}T00:00:00`);
+      const today0 = new Date();
+      today0.setHours(0, 0, 0, 0);
+      if (isNaN(dt.getTime())) return setError('Pick a date.');
+      if (dt < today0) return setError('Pick today or a future date.');
+      saveDays = [dt.getDay()];
+      remindDate = date;
+    } else if (days.length === 0) {
+      return setError('Pick at least one day.');
     }
 
+    const desc = description.trim() || null;
     setSaving(true);
     try {
       if (routine) {
-        await updateRoutine(routine.id, { title: title.trim(), time: t, days });
+        await updateRoutine(routine.id, { title: title.trim(), time: t, days: saveDays, remindDate, description: desc });
       } else {
-        await createRoutine(title.trim(), t, days);
+        await createRoutine(title.trim(), t, saveDays, { remindDate, description: desc });
       }
       onSaved();
       onClose();
     } catch (e) {
-      Alert.alert('Could not save', String(e));
+      setError(String(e));
     } finally {
       setSaving(false);
     }
@@ -113,7 +132,7 @@ export function RoutineEditSheet({ visible, routine, onClose, onSaved }: Props) 
             {routine ? 'Edit routine' : 'New routine'}
           </Text>
           <Text style={styles.subtitle}>
-            A simple recurring reminder. Coach voice rings, you confirm.
+            A reminder — recurring or one-time. The coach rings; you confirm.
           </Text>
 
           {/* Title input */}
@@ -128,8 +147,31 @@ export function RoutineEditSheet({ visible, routine, onClose, onSaved }: Props) 
             autoFocus={!routine}
           />
 
-          {/* Time row */}
+          {/* Details */}
+          <Text style={styles.fieldLabel}>Details (optional)</Text>
+          <TextInput
+            style={styles.descInput}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Anything the coach should mention"
+            placeholderTextColor="#C7CBD3"
+            multiline
+            maxLength={200}
+          />
+
+          {/* Repeats / one-time */}
           <Text style={styles.fieldLabel}>When?</Text>
+          <View style={styles.whenToggle}>
+            <Pressable onPress={() => setOnce(false)} style={[styles.seg, !once && styles.segOn]}>
+              <Text style={[styles.segText, !once && styles.segTextOn]}>Repeats</Text>
+            </Pressable>
+            <Pressable onPress={() => setOnce(true)} style={[styles.seg, once && styles.segOn]}>
+              <Text style={[styles.segText, once && styles.segTextOn]}>Just once</Text>
+            </Pressable>
+          </View>
+
+          {/* Time row */}
+          <Text style={styles.fieldLabel}>Time</Text>
           <View style={styles.timeRow}>
             <TextInput
               style={styles.timeInput}
@@ -155,34 +197,46 @@ export function RoutineEditSheet({ visible, routine, onClose, onSaved }: Props) 
             </Pressable>
           </View>
 
-          {/* Day chips */}
-          <Text style={styles.fieldLabel}>Which days?</Text>
-          <View style={styles.daysRow}>
-            {DAY_LETTERS.map((letter, d) => {
-              const on = days.includes(d);
-              return (
-                <Pressable
-                  key={d}
-                  onPress={() => toggleDay(d)}
-                  style={[styles.dayChip, on && styles.dayChipOn]}
-                >
-                  <Text style={[styles.dayChipText, on && styles.dayChipTextOn]}>{letter}</Text>
+          {/* Date (one-time) or day chips (recurring) */}
+          {once ? (
+            <>
+              <Text style={styles.fieldLabel}>Date</Text>
+              <View style={{ marginBottom: 18 }}>
+                <DatePickerField value={date} onChange={setDate} />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.fieldLabel}>Which days?</Text>
+              <View style={styles.daysRow}>
+                {DAY_LETTERS.map((letter, d) => {
+                  const on = days.includes(d);
+                  return (
+                    <Pressable
+                      key={d}
+                      onPress={() => toggleDay(d)}
+                      style={[styles.dayChip, on && styles.dayChipOn]}
+                    >
+                      <Text style={[styles.dayChipText, on && styles.dayChipTextOn]}>{letter}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={styles.presetRow}>
+                <Pressable onPress={presetEveryday} style={styles.presetChip}>
+                  <Text style={styles.presetText}>Every day</Text>
                 </Pressable>
-              );
-            })}
-          </View>
+                <Pressable onPress={presetWeekdays} style={styles.presetChip}>
+                  <Text style={styles.presetText}>Weekdays</Text>
+                </Pressable>
+                <Pressable onPress={presetWeekends} style={styles.presetChip}>
+                  <Text style={styles.presetText}>Weekends</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
 
-          <View style={styles.presetRow}>
-            <Pressable onPress={presetEveryday} style={styles.presetChip}>
-              <Text style={styles.presetText}>Every day</Text>
-            </Pressable>
-            <Pressable onPress={presetWeekdays} style={styles.presetChip}>
-              <Text style={styles.presetText}>Weekdays</Text>
-            </Pressable>
-            <Pressable onPress={presetWeekends} style={styles.presetChip}>
-              <Text style={styles.presetText}>Weekends</Text>
-            </Pressable>
-          </View>
+          {error && <Text style={styles.errorText}>{error}</Text>}
 
           <View style={styles.actionRow}>
             <Pressable onPress={onClose} style={[styles.actionBtn, styles.actionBtnSecondary]}>
@@ -263,6 +317,47 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: '#1E1B4B',
     marginBottom: 16,
+  },
+  descInput: {
+    minHeight: 56,
+    borderRadius: 12,
+    backgroundColor: '#F4F6FB',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.16)',
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: '#1E1B4B',
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  whenToggle: {
+    flexDirection: 'row',
+    padding: 4,
+    backgroundColor: 'rgba(108, 93, 211, 0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(108, 93, 211, 0.08)',
+    marginBottom: 16,
+  },
+  seg: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  segOn: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#6C5DD3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  segText: { color: '#6B7280', fontSize: 13, fontFamily: 'Inter_500Medium' },
+  segTextOn: { color: '#1E1B4B', fontFamily: 'Inter_600SemiBold' },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    marginBottom: 10,
   },
   timeRow: {
     flexDirection: 'row',
