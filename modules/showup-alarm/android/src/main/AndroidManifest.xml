@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Note: the parent app's AndroidManifest already declares the runtime perms
+    (USE_EXACT_ALARM, RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE,
+     FOREGROUND_SERVICE_MEDIA_PLAYBACK, RECORD_AUDIO, POST_NOTIFICATIONS,
+     WAKE_LOCK). This module manifest only declares the receivers and service
+     it ships.
+  -->
+
+  <application>
+
+    <!-- ── Voice call foreground service ────────────────────────────── -->
+    <service
+      android:name="ai.showup.alarm.VoiceCallService"
+      android:enabled="true"
+      android:exported="false"
+      android:foregroundServiceType="mediaPlayback" />
+
+    <!-- ── Alarm receiver: fires from AlarmManager.setAlarmClock ────── -->
+    <receiver
+      android:name="ai.showup.alarm.AlarmReceiver"
+      android:enabled="true"
+      android:exported="false" />
+
+    <!-- ── Boot + clock-change receivers: re-arm alarms ─────────────── -->
+    <receiver
+      android:name="ai.showup.alarm.BootReceiver"
+      android:enabled="true"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+    </receiver>
+
+  </application>
+
+</manifest>
